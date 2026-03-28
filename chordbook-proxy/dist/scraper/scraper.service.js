@@ -73,6 +73,8 @@ let ScraperService = class ScraperService {
                 if (text) {
                     const title = text
                         .replace(new RegExp(`^${artistName}\\s*-\\s*`, 'i'), '')
+                        .replace(/\s*\(\d+\s*versions?\)\s*/gi, '')
+                        .replace(/\s+/g, ' ')
                         .trim();
                     if (title && !results.some((r) => r.id === idMatch[1])) {
                         results.push({

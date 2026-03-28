@@ -120,9 +120,11 @@ export class ScraperService {
       if (idMatch && href.endsWith('.html')) {
         const text = $(el).text().trim();
         if (text) {
-          // Remove artist prefix if present (e.g. "Nirvana - Smells Like Teen Spirit")
+          // Clean up: remove artist prefix and "(N versions)" suffix
           const title = text
             .replace(new RegExp(`^${artistName}\\s*-\\s*`, 'i'), '')
+            .replace(/\s*\(\d+\s*versions?\)\s*/gi, '')
+            .replace(/\s+/g, ' ')
             .trim();
 
           if (title && !results.some((r) => r.id === idMatch[1])) {
