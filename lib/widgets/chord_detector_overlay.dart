@@ -19,90 +19,79 @@ class ChordDetectorOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Positioned(
-      bottom: DesignTokens.spacingMd,
-      left: DesignTokens.spacingMd,
-      right: DesignTokens.spacingMd,
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.only(
+        right: DesignTokens.spacingMd,
+        bottom: DesignTokens.spacingMd,
+        left: DesignTokens.spacingMd,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Mic toggle button
-          FloatingActionButton(
-            heroTag: 'mic_toggle',
-            onPressed: onToggle,
-            backgroundColor: isListening
-                ? theme.colorScheme.error
-                : theme.colorScheme.primary,
-            child: Icon(
-              isListening ? Icons.mic_off : Icons.mic,
-              color: Colors.white,
-            ),
-          ),
-          if (isListening && detectedChord.isNotEmpty) ...[
-            const SizedBox(width: DesignTokens.spacingMd),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: DesignTokens.spacingMd,
-                  vertical: DesignTokens.spacingSm,
-                ),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.music_note,
+          // Detected chord badge
+          if (isListening && detectedChord.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: DesignTokens.spacingSm),
+              padding: const EdgeInsets.symmetric(
+                horizontal: DesignTokens.spacingMd,
+                vertical: DesignTokens.spacingSm,
+              ),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(DesignTokens.radiusLg),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.15),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.music_note,
+                    color: theme.colorScheme.onPrimaryContainer,
+                    size: 20,
+                  ),
+                  const SizedBox(width: DesignTokens.spacingSm),
+                  Text(
+                    detectedChord,
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'monospace',
                       color: theme.colorScheme.onPrimaryContainer,
-                      size: 20,
                     ),
-                    const SizedBox(width: DesignTokens.spacingSm),
-                    Text(
-                      detectedChord,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'monospace',
-                        color: theme.colorScheme.onPrimaryContainer,
-                      ),
-                    ),
-                    const Spacer(),
-                    // Confidence indicator
-                    SizedBox(
-                      width: 40,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: LinearProgressIndicator(
-                          value: confidence,
-                          minHeight: 6,
-                          backgroundColor: theme.colorScheme.outline
-                              .withValues(alpha: 0.3),
-                          valueColor: AlwaysStoppedAnimation(
-                            confidence > 0.7
-                                ? Colors.green
-                                : confidence > 0.5
-                                    ? Colors.orange
-                                    : Colors.red,
-                          ),
+                  ),
+                  const SizedBox(width: DesignTokens.spacingSm),
+                  SizedBox(
+                    width: 40,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: confidence,
+                        minHeight: 6,
+                        backgroundColor:
+                            theme.colorScheme.outline.withValues(alpha: 0.3),
+                        valueColor: AlwaysStoppedAnimation(
+                          confidence > 0.7
+                              ? Colors.green
+                              : confidence > 0.5
+                                  ? Colors.orange
+                                  : Colors.red,
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
-          if (isListening && detectedChord.isEmpty) ...[
-            const SizedBox(width: DesignTokens.spacingMd),
+          if (isListening && detectedChord.isEmpty)
             Container(
+              margin: const EdgeInsets.only(bottom: DesignTokens.spacingSm),
               padding: const EdgeInsets.symmetric(
                 horizontal: DesignTokens.spacingMd,
                 vertical: DesignTokens.spacingSm,
@@ -133,7 +122,18 @@ class ChordDetectorOverlay extends StatelessWidget {
                 ],
               ),
             ),
-          ],
+          // Mic toggle FAB — right aligned
+          FloatingActionButton(
+            heroTag: 'mic_toggle',
+            onPressed: onToggle,
+            backgroundColor: isListening
+                ? theme.colorScheme.error
+                : theme.colorScheme.primary,
+            child: Icon(
+              isListening ? Icons.mic_off : Icons.mic,
+              color: Colors.white,
+            ),
+          ),
         ],
       ),
     );

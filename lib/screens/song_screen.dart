@@ -193,13 +193,17 @@ class _SongScreenState extends ConsumerState<SongScreen> {
                   ),
                 ],
               ),
-              // Chord detector overlay
-              ChordDetectorOverlay(
-                detectedChord: audioState.detectedChord,
-                confidence: audioState.confidence,
-                isListening: audioState.isListening,
-                onToggle: () =>
-                    ref.read(audioProvider.notifier).toggle(),
+              // Chord detector overlay — bottom-right, ignores taps on empty space
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: ChordDetectorOverlay(
+                  detectedChord: audioState.detectedChord,
+                  confidence: audioState.confidence,
+                  isListening: audioState.isListening,
+                  onToggle: () =>
+                      ref.read(audioProvider.notifier).toggle(),
+                ),
               ),
             ],
           ),
