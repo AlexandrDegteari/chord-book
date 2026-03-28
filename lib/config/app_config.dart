@@ -1,5 +1,5 @@
 class AppConfig {
-  static const String apiBaseUrl = 'http://localhost:3000/api';
+  static const String apiBaseUrl = 'http://46.225.124.82:3100/api';
   static const String appName = 'ChordBook';
 
   // Audio

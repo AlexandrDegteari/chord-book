@@ -65,12 +65,12 @@ let ScraperService = class ScraperService {
         const { data } = await axios_1.default.get(artistUrl, { headers: this.headers });
         const $ = (0, cheerio_1.load)(data);
         const results = [];
-        $('a').each((_, el) => {
+        $('.b-listing__item__link').each((_, el) => {
             const href = $(el).attr('href') || '';
             const idMatch = href.match(/\/(\d+)-/);
             if (idMatch && href.endsWith('.html')) {
                 const text = $(el).text().trim();
-                if (text && !text.includes('\n')) {
+                if (text) {
                     const title = text
                         .replace(new RegExp(`^${artistName}\\s*-\\s*`, 'i'), '')
                         .trim();

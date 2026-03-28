@@ -112,14 +112,15 @@ export class ScraperService {
     const $ = load(data);
     const results: SearchResult[] = [];
 
-    $('a').each((_, el) => {
+    // Use the specific listing selector for artist song pages
+    $('.b-listing__item__link').each((_, el) => {
       const href = $(el).attr('href') || '';
       const idMatch = href.match(/\/(\d+)-/);
 
       if (idMatch && href.endsWith('.html')) {
         const text = $(el).text().trim();
-        if (text && !text.includes('\n')) {
-          // Remove artist prefix if present
+        if (text) {
+          // Remove artist prefix if present (e.g. "Nirvana - Smells Like Teen Spirit")
           const title = text
             .replace(new RegExp(`^${artistName}\\s*-\\s*`, 'i'), '')
             .trim();
