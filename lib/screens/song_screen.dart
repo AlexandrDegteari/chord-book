@@ -11,6 +11,21 @@ import '../widgets/chord_detector_overlay.dart';
 import '../widgets/chord_line.dart';
 import '../widgets/section_header.dart';
 
+/// A position in the flat chord sequence: section, line, chord index.
+class _ChordPosition {
+  final int section;
+  final int line;
+  final int chord;
+  final String root; // Normalized root note (e.g. "A", "C#")
+
+  const _ChordPosition({
+    required this.section,
+    required this.line,
+    required this.chord,
+    required this.root,
+  });
+}
+
 class SongScreen extends ConsumerStatefulWidget {
   final String songUrl;
   final String title;
@@ -30,10 +45,25 @@ class SongScreen extends ConsumerStatefulWidget {
 class _SongScreenState extends ConsumerState<SongScreen> {
   double _fontSize = 16.0;
   final ScrollController _scrollController = ScrollController();
-
-  // Keys for each line to enable scroll-to
   final Map<String, GlobalKey> _lineKeys = {};
-  String _lastScrolledChord = '';
+
+  // Linear chord progression
+  List<_ChordPosition> _chordSequence = [];
+  int _currentChordIndex = 0;
+  String _lastAdvancedNote = '';
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to audio state changes outside of build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.listen<AudioState>(audioProvider, (prev, next) {
+        if (next.isListening && next.detectedNote.isNotEmpty) {
+          _onNoteDetected(next.detectedNote);
+        }
+      });
+    });
+  }
 
   @override
   void deactivate() {
@@ -48,54 +78,115 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     super.dispose();
   }
 
-  /// Build a unique key for a line at [sectionIndex]:[lineIndex]
-  String _lineKeyId(int sectionIndex, int lineIndex) =>
-      '$sectionIndex:$lineIndex';
+  String _lineKeyId(int s, int l) => '$s:$l';
 
-  /// Find the next line that contains the detected chord and scroll to it
-  void _autoScrollToChord(String detectedChord, Song song) {
-    if (detectedChord.isEmpty || detectedChord == _lastScrolledChord) return;
-    _lastScrolledChord = detectedChord;
-
-    // Find the first visible line with this chord that's below current scroll
+  /// Build a flat ordered list of all chord positions in the song.
+  void _buildChordSequence(Song song) {
+    final seq = <_ChordPosition>[];
     for (int s = 0; s < song.sections.length; s++) {
-      final section = song.sections[s];
-      for (int l = 0; l < section.lines.length; l++) {
-        final line = section.lines[l];
-        final hasChord = line.chords.any((c) =>
-            c.display.toLowerCase() == detectedChord.toLowerCase());
-        if (!hasChord) continue;
-
-        final keyId = _lineKeyId(s, l);
-        final key = _lineKeys[keyId];
-        if (key?.currentContext == null) continue;
-
-        final renderBox =
-            key!.currentContext!.findRenderObject() as RenderBox?;
-        if (renderBox == null) continue;
-
-        // Get position relative to the scroll view
-        final scrollBox =
-            _scrollController.position.context.storageContext
-                .findRenderObject() as RenderBox?;
-        if (scrollBox == null) continue;
-
-        final pos = renderBox.localToGlobal(Offset.zero, ancestor: scrollBox);
-
-        // Only scroll if the line is below the visible area or close to bottom
-        final viewportHeight = _scrollController.position.viewportDimension;
-        if (pos.dy > viewportHeight * 0.4 || pos.dy < 0) {
-          final targetOffset = _scrollController.offset + pos.dy - 120;
-          _scrollController.animateTo(
-            targetOffset.clamp(
-                0.0, _scrollController.position.maxScrollExtent),
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeInOut,
-          );
-          return;
+      for (int l = 0; l < song.sections[s].lines.length; l++) {
+        final chords = song.sections[s].lines[l].chords;
+        for (int c = 0; c < chords.length; c++) {
+          seq.add(_ChordPosition(
+            section: s,
+            line: l,
+            chord: c,
+            root: _normalizeNote(chords[c].root),
+          ));
         }
       }
     }
+    _chordSequence = seq;
+  }
+
+  /// Normalize note names: Db→C#, Eb→D#, etc.
+  String _normalizeNote(String note) {
+    const flatToSharp = {
+      'Db': 'C#', 'Eb': 'D#', 'Fb': 'E', 'Gb': 'F#',
+      'Ab': 'G#', 'Bb': 'A#', 'Cb': 'B',
+    };
+    return flatToSharp[note] ?? note;
+  }
+
+  /// Advance when detected note matches the current expected chord root.
+  void _onNoteDetected(String detectedNote) {
+    if (detectedNote.isEmpty) return;
+    if (_chordSequence.isEmpty) return;
+    if (_currentChordIndex >= _chordSequence.length) return;
+
+    final normalized = _normalizeNote(detectedNote);
+
+    // Don't re-trigger on the same note continuously
+    if (normalized == _lastAdvancedNote) return;
+
+    final current = _chordSequence[_currentChordIndex];
+    if (normalized == current.root) {
+      _lastAdvancedNote = normalized;
+      setState(() {
+        _currentChordIndex++;
+      });
+      // Scroll to the current chord's line
+      if (_currentChordIndex < _chordSequence.length) {
+        final next = _chordSequence[_currentChordIndex];
+        _scrollToLine(next.section, next.line);
+      }
+    }
+  }
+
+  void _scrollToLine(int s, int l) {
+    final keyId = _lineKeyId(s, l);
+    final key = _lineKeys[keyId];
+    if (key?.currentContext == null) return;
+
+    final renderBox = key!.currentContext!.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final scrollRenderBox = _scrollController.position.context.storageContext
+        .findRenderObject() as RenderBox?;
+    if (scrollRenderBox == null) return;
+
+    final pos =
+        renderBox.localToGlobal(Offset.zero, ancestor: scrollRenderBox);
+    final viewportHeight = _scrollController.position.viewportDimension;
+
+    if (pos.dy > viewportHeight * 0.6 || pos.dy < viewportHeight * 0.2) {
+      final target = _scrollController.offset + pos.dy - viewportHeight * 0.35;
+      _scrollController.animateTo(
+        target.clamp(0.0, _scrollController.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  /// Get the set of active chord display names for a given line.
+  /// Returns (currentChords, nextChords) — sets of chord display strings.
+  ({Set<String> current, Set<String> next}) _getLineHighlights(
+      int sectionIdx, int lineIdx) {
+    final currentSet = <String>{};
+    final nextSet = <String>{};
+
+    if (_chordSequence.isEmpty) return (current: currentSet, next: nextSet);
+
+    // Current chord (the one being played)
+    final curIdx = _currentChordIndex > 0 ? _currentChordIndex - 1 : -1;
+    if (curIdx >= 0 && curIdx < _chordSequence.length) {
+      final pos = _chordSequence[curIdx];
+      if (pos.section == sectionIdx && pos.line == lineIdx) {
+        // Get the display name from the song data
+        currentSet.add('$sectionIdx:$lineIdx:${pos.chord}');
+      }
+    }
+
+    // Next chord (on deck)
+    if (_currentChordIndex < _chordSequence.length) {
+      final pos = _chordSequence[_currentChordIndex];
+      if (pos.section == sectionIdx && pos.line == lineIdx) {
+        nextSet.add('$sectionIdx:$lineIdx:${pos.chord}');
+      }
+    }
+
+    return (current: currentSet, next: nextSet);
   }
 
   @override
@@ -109,13 +200,9 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     final displayArtist = songAsync.value?.artist ?? widget.artist;
     final songId = songAsync.value?.id ?? '';
 
-    // Auto-scroll when chord changes
-    if (audioState.isListening &&
-        audioState.detectedChord.isNotEmpty &&
-        songAsync.value != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _autoScrollToChord(audioState.detectedChord, songAsync.value!);
-      });
+    // Build chord sequence when song loads (synchronous, no setState needed)
+    if (songAsync.value != null && _chordSequence.isEmpty) {
+      _buildChordSequence(songAsync.value!);
     }
 
     return Scaffold(
@@ -188,21 +275,25 @@ class _SongScreenState extends ConsumerState<SongScreen> {
               Column(
                 children: [
                   _buildToolbar(theme, transpose),
-                  Expanded(
-                    child: _buildSongContent(value, audioState),
-                  ),
+                  Expanded(child: _buildSongContent(value, audioState)),
                 ],
               ),
-              // Chord detector overlay — bottom-right, ignores taps on empty space
               Positioned(
                 bottom: 0,
                 right: 0,
                 child: ChordDetectorOverlay(
-                  detectedChord: audioState.detectedChord,
-                  confidence: audioState.confidence,
+                  detectedNote: audioState.detectedNote,
+                  frequency: audioState.frequency,
                   isListening: audioState.isListening,
-                  onToggle: () =>
-                      ref.read(audioProvider.notifier).toggle(),
+                  error: audioState.error,
+                  onToggle: () {
+                    ref.read(audioProvider.notifier).toggle();
+                    // Reset progression when toggling
+                    setState(() {
+                      _currentChordIndex = 0;
+                      _lastAdvancedNote = '';
+                    });
+                  },
                 ),
               ),
             ],
@@ -219,7 +310,7 @@ class _SongScreenState extends ConsumerState<SongScreen> {
         left: DesignTokens.spacingMd,
         right: DesignTokens.spacingMd,
         top: DesignTokens.spacingMd,
-        bottom: 100, // Space for the overlay
+        bottom: 100,
       ),
       itemCount: song.sections.length,
       itemBuilder: (context, sectionIndex) {
@@ -233,14 +324,20 @@ class _SongScreenState extends ConsumerState<SongScreen> {
               final keyId = _lineKeyId(sectionIndex, lineIndex);
               _lineKeys.putIfAbsent(keyId, () => GlobalKey());
 
+              // Get highlights for this line
+              final highlights = audioState.isListening
+                  ? _getLineHighlights(sectionIndex, lineIndex)
+                  : (current: <String>{}, next: <String>{});
+
               return KeyedSubtree(
                 key: _lineKeys[keyId],
                 child: ChordLineWidget(
                   line: line,
                   fontSize: _fontSize,
-                  activeChord: audioState.isListening
-                      ? audioState.detectedChord
-                      : null,
+                  sectionIndex: sectionIndex,
+                  lineIndex: lineIndex,
+                  currentChordKeys: highlights.current,
+                  nextChordKeys: highlights.next,
                 ),
               );
             }),
@@ -267,7 +364,6 @@ class _SongScreenState extends ConsumerState<SongScreen> {
       ),
       child: Row(
         children: [
-          // Transpose controls
           IconButton(
             onPressed: () =>
                 ref.read(transposeProvider.notifier).decrement(),
@@ -307,7 +403,6 @@ class _SongScreenState extends ConsumerState<SongScreen> {
               child: const Text('Reset', style: TextStyle(fontSize: 12)),
             ),
           const Spacer(),
-          // Font size controls
           IconButton(
             onPressed:
                 _fontSize > 12 ? () => setState(() => _fontSize -= 2) : null,

@@ -2,17 +2,19 @@ import 'package:flutter/material.dart';
 import '../config/design_tokens.dart';
 
 class ChordDetectorOverlay extends StatelessWidget {
-  final String detectedChord;
-  final double confidence;
+  final String detectedNote;
+  final double frequency;
   final bool isListening;
+  final String? error;
   final VoidCallback onToggle;
 
   const ChordDetectorOverlay({
     super.key,
-    required this.detectedChord,
-    required this.confidence,
+    required this.detectedNote,
+    required this.frequency,
     required this.isListening,
     required this.onToggle,
+    this.error,
   });
 
   @override
@@ -29,8 +31,25 @@ class ChordDetectorOverlay extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Detected chord badge
-          if (isListening && detectedChord.isNotEmpty)
+          // Error
+          if (error != null)
+            Container(
+              margin: const EdgeInsets.only(bottom: DesignTokens.spacingSm),
+              padding: const EdgeInsets.all(DesignTokens.spacingSm),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.errorContainer,
+                borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
+              ),
+              child: Text(
+                error!,
+                style: TextStyle(
+                  color: theme.colorScheme.onErrorContainer,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          // Detected note badge
+          if (isListening && detectedNote.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(bottom: DesignTokens.spacingSm),
               padding: const EdgeInsets.symmetric(
@@ -58,7 +77,7 @@ class ChordDetectorOverlay extends StatelessWidget {
                   ),
                   const SizedBox(width: DesignTokens.spacingSm),
                   Text(
-                    detectedChord,
+                    detectedNote,
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -67,29 +86,19 @@ class ChordDetectorOverlay extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: DesignTokens.spacingSm),
-                  SizedBox(
-                    width: 40,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: confidence,
-                        minHeight: 6,
-                        backgroundColor:
-                            theme.colorScheme.outline.withValues(alpha: 0.3),
-                        valueColor: AlwaysStoppedAnimation(
-                          confidence > 0.7
-                              ? Colors.green
-                              : confidence > 0.5
-                                  ? Colors.orange
-                                  : Colors.red,
-                        ),
-                      ),
+                  Text(
+                    '${frequency.toStringAsFixed(0)} Hz',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                      color: theme.colorScheme.onPrimaryContainer
+                          .withValues(alpha: 0.7),
                     ),
                   ),
                 ],
               ),
             ),
-          if (isListening && detectedChord.isEmpty)
+          if (isListening && detectedNote.isEmpty)
             Container(
               margin: const EdgeInsets.only(bottom: DesignTokens.spacingSm),
               padding: const EdgeInsets.symmetric(
@@ -122,7 +131,7 @@ class ChordDetectorOverlay extends StatelessWidget {
                 ],
               ),
             ),
-          // Mic toggle FAB — right aligned
+          // Mic toggle FAB
           FloatingActionButton(
             heroTag: 'mic_toggle',
             onPressed: onToggle,

@@ -10,7 +10,7 @@ class ThemeNotifier extends Notifier<ThemeMode> {
 
   @override
   ThemeMode build() {
-    _load();
+    Future.microtask(() => _load());
     return ThemeMode.system;
   }
 

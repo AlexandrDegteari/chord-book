@@ -50,10 +50,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: _themeIcon(ref.watch(themeProvider)),
             onPressed: () => ref.read(themeProvider.notifier).toggle(),
           ),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => context.push('/settings'),
-          ),
         ],
       ),
       body: Column(

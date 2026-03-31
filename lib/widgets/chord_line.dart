@@ -4,14 +4,20 @@ import 'chord_badge.dart';
 
 class ChordLineWidget extends StatelessWidget {
   final SongLine line;
-  final String? activeChord;
   final double fontSize;
+  final int sectionIndex;
+  final int lineIndex;
+  final Set<String> currentChordKeys; // Keys like "s:l:c" for current chord
+  final Set<String> nextChordKeys; // Keys like "s:l:c" for next chord
 
   const ChordLineWidget({
     super.key,
     required this.line,
-    this.activeChord,
     this.fontSize = 16,
+    this.sectionIndex = 0,
+    this.lineIndex = 0,
+    this.currentChordKeys = const {},
+    this.nextChordKeys = const {},
   });
 
   @override
@@ -28,14 +34,21 @@ class ChordLineWidget extends StatelessWidget {
           if (line.chords.isNotEmpty)
             Wrap(
               spacing: 8,
-              children: line.chords.map((chord) {
-                final isActive = activeChord != null &&
-                    chord.display.toLowerCase() == activeChord!.toLowerCase();
+              children: List.generate(line.chords.length, (chordIdx) {
+                final chord = line.chords[chordIdx];
+                final key = '$sectionIndex:$lineIndex:$chordIdx';
+                final isCurrent = currentChordKeys.contains(key);
+                final isNext = nextChordKeys.contains(key);
+
                 return ChordBadge(
                   chord: chord.display,
-                  isActive: isActive,
+                  state: isCurrent
+                      ? ChordBadgeState.current
+                      : isNext
+                          ? ChordBadgeState.next
+                          : ChordBadgeState.normal,
                 );
-              }).toList(),
+              }),
             ),
           if (line.lyrics.isNotEmpty)
             Padding(
