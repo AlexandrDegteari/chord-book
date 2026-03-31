@@ -55,6 +55,8 @@ class SpeechNotifier extends Notifier<SpeechState> {
       },
       localeId: localeId,
       listenOptions: SpeechListenOptions(listenMode: ListenMode.search),
+      pauseFor: const Duration(seconds: 3),
+      listenFor: const Duration(seconds: 10),
     );
   }
 

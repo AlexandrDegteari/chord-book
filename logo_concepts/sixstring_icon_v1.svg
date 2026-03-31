@@ -10,47 +10,47 @@
   <rect width="200" height="200" rx="40" fill="url(#bg1i)"/>
 
   <!-- Outer rosette -->
-  <circle cx="100" cy="100" r="65" fill="none" stroke="#FF7043" stroke-width="3.5"/>
+  <circle cx="100" cy="100" r="80" fill="none" stroke="#FF7043" stroke-width="4"/>
 
   <!-- Decorative inner ring -->
-  <circle cx="100" cy="100" r="56" fill="none" stroke="#FF7043" stroke-width="0.8" opacity="0.3"/>
+  <circle cx="100" cy="100" r="69" fill="none" stroke="#FF7043" stroke-width="0.8" opacity="0.3"/>
 
   <!-- Sound hole -->
-  <circle cx="100" cy="100" r="48" fill="#0a1420"/>
+  <circle cx="100" cy="100" r="59" fill="#0a1420"/>
 
-  <!-- 6 strings running vertically (wider spacing: 75,85,95,105,115,125) -->
-  <line x1="75" y1="35" x2="75" y2="165" stroke="#FF7043" stroke-width="0.8" opacity="0.5"/>
-  <line x1="85" y1="35" x2="85" y2="165" stroke="#FF7043" stroke-width="1.0" opacity="0.55"/>
-  <line x1="95" y1="35" x2="95" y2="165" stroke="#FF7043" stroke-width="1.2" opacity="0.6"/>
-  <line x1="105" y1="35" x2="105" y2="165" stroke="#FF7043" stroke-width="1.2" opacity="0.6"/>
-  <line x1="115" y1="35" x2="115" y2="165" stroke="#FF7043" stroke-width="1.0" opacity="0.55"/>
-  <line x1="125" y1="35" x2="125" y2="165" stroke="#FF7043" stroke-width="0.8" opacity="0.5"/>
+  <!-- 6 strings running vertically (wider spacing) -->
+  <line x1="69" y1="20" x2="69" y2="180" stroke="#FF7043" stroke-width="0.8" opacity="0.5"/>
+  <line x1="82" y1="20" x2="82" y2="180" stroke="#FF7043" stroke-width="1.0" opacity="0.55"/>
+  <line x1="94" y1="20" x2="94" y2="180" stroke="#FF7043" stroke-width="1.2" opacity="0.6"/>
+  <line x1="106" y1="20" x2="106" y2="180" stroke="#FF7043" stroke-width="1.2" opacity="0.6"/>
+  <line x1="118" y1="20" x2="118" y2="180" stroke="#FF7043" stroke-width="1.0" opacity="0.55"/>
+  <line x1="131" y1="20" x2="131" y2="180" stroke="#FF7043" stroke-width="0.8" opacity="0.5"/>
 
   <!-- Am chord: X 0 2 2 1 0 -->
   <!-- Fret lines (horizontal) -->
-  <line x1="70" y1="82" x2="130" y2="82" stroke="#FF7043" stroke-width="0.6" opacity="0.2"/>
-  <line x1="70" y1="96" x2="130" y2="96" stroke="#FF7043" stroke-width="0.6" opacity="0.2"/>
-  <line x1="70" y1="110" x2="130" y2="110" stroke="#FF7043" stroke-width="0.6" opacity="0.2"/>
-  <line x1="70" y1="124" x2="130" y2="124" stroke="#FF7043" stroke-width="0.6" opacity="0.2"/>
+  <line x1="63" y1="78" x2="137" y2="78" stroke="#FF7043" stroke-width="0.6" opacity="0.2"/>
+  <line x1="63" y1="95" x2="137" y2="95" stroke="#FF7043" stroke-width="0.6" opacity="0.2"/>
+  <line x1="63" y1="112" x2="137" y2="112" stroke="#FF7043" stroke-width="0.6" opacity="0.2"/>
+  <line x1="63" y1="130" x2="137" y2="130" stroke="#FF7043" stroke-width="0.6" opacity="0.2"/>
 
   <!-- Nut (top bar) -->
-  <line x1="80" y1="70" x2="129" y2="70" stroke="#FF7043" stroke-width="2.5" opacity="0.6"/>
+  <line x1="75" y1="63" x2="136" y2="63" stroke="#FF7043" stroke-width="3.0" opacity="0.6"/>
 
   <!-- Finger dots -->
-  <!-- String 4 (95), fret 2 → y=103 -->
-  <circle cx="95" cy="103" r="4.5" fill="#FF7043" opacity="0.85"/>
-  <!-- String 3 (105), fret 2 → y=103 -->
-  <circle cx="105" cy="103" r="4.5" fill="#FF7043" opacity="0.85"/>
-  <!-- String 2 (115), fret 1 → y=76 -->
-  <circle cx="115" cy="76" r="4.5" fill="#FF7043" opacity="0.85"/>
+  <!-- String 4 (94), fret 2 → y=104 -->
+  <circle cx="94" cy="104" r="5.5" fill="#FF7043" opacity="0.85"/>
+  <!-- String 3 (106), fret 2 → y=104 -->
+  <circle cx="106" cy="104" r="5.5" fill="#FF7043" opacity="0.85"/>
+  <!-- String 2 (118), fret 1 → y=70 -->
+  <circle cx="118" cy="70" r="5.5" fill="#FF7043" opacity="0.85"/>
 
   <!-- Open strings (circles above nut) -->
-  <!-- String 5 (85) - open -->
-  <circle cx="85" cy="59" r="4" fill="none" stroke="#FF7043" stroke-width="1.3" opacity="0.7"/>
-  <!-- String 1 (125) - open -->
-  <circle cx="125" cy="59" r="4" fill="none" stroke="#FF7043" stroke-width="1.3" opacity="0.7"/>
+  <!-- String 5 (82) - open -->
+  <circle cx="82" cy="50" r="5" fill="none" stroke="#FF7043" stroke-width="1.3" opacity="0.7"/>
+  <!-- String 1 (131) - open -->
+  <circle cx="131" cy="50" r="5" fill="none" stroke="#FF7043" stroke-width="1.3" opacity="0.7"/>
 
-  <!-- Muted string 6 (75) - X -->
-  <line x1="71" y1="55" x2="79" y2="63" stroke="#FF7043" stroke-width="1.5" opacity="0.7"/>
-  <line x1="79" y1="55" x2="71" y2="63" stroke="#FF7043" stroke-width="1.5" opacity="0.7"/>
+  <!-- Muted string 6 (69) - X -->
+  <line x1="64" y1="45" x2="74" y2="55" stroke="#FF7043" stroke-width="1.8" opacity="0.7"/>
+  <line x1="74" y1="45" x2="64" y2="55" stroke="#FF7043" stroke-width="1.8" opacity="0.7"/>
 </svg>

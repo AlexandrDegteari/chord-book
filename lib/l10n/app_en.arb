@@ -55,6 +55,10 @@
   "english": "English",
   "russian": "Russian",
   "romanian": "Romanian",
+  "metronome": "Metronome",
+  "bpm": "BPM",
+  "tapTempo": "Tap Tempo",
+  "timeSignature": "Time Signature",
   "failed": "Failed: {error}",
   "@failed": {
     "placeholders": {

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../screens/home_screen.dart';
 import '../screens/song_screen.dart';
 import '../screens/settings_screen.dart';
+import '../screens/metronome_screen.dart';
 import '../screens/tuner_screen.dart';
 import '../widgets/main_shell.dart';
 
@@ -34,7 +35,16 @@ final appRouter = GoRouter(
             ),
           ],
         ),
-        // Tab 2: Settings
+        // Tab 2: Metronome
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/metronome',
+              builder: (context, state) => const MetronomeScreen(),
+            ),
+          ],
+        ),
+        // Tab 3: Settings
         StatefulShellBranch(
           routes: [
             GoRoute(

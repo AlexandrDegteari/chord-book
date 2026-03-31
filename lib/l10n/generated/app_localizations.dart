@@ -370,6 +370,30 @@ abstract class AppLocalizations {
   /// **'Romanian'**
   String get romanian;
 
+  /// No description provided for @metronome.
+  ///
+  /// In en, this message translates to:
+  /// **'Metronome'**
+  String get metronome;
+
+  /// No description provided for @bpm.
+  ///
+  /// In en, this message translates to:
+  /// **'BPM'**
+  String get bpm;
+
+  /// No description provided for @tapTempo.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap Tempo'**
+  String get tapTempo;
+
+  /// No description provided for @timeSignature.
+  ///
+  /// In en, this message translates to:
+  /// **'Time Signature'**
+  String get timeSignature;
+
   /// No description provided for @failed.
   ///
   /// In en, this message translates to:

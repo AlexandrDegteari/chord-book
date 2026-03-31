@@ -148,6 +148,18 @@ class AppLocalizationsRu extends AppLocalizations {
   String get romanian => 'Romana';
 
   @override
+  String get metronome => 'Метроном';
+
+  @override
+  String get bpm => 'BPM';
+
+  @override
+  String get tapTempo => 'Тап темп';
+
+  @override
+  String get timeSignature => 'Размер';
+
+  @override
   String failed(String error) {
     return 'Ошибка: $error';
   }

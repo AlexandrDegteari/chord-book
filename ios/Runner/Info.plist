@@ -49,5 +49,7 @@
 	<string>Sixstrings needs microphone access to detect chords while you play</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Sixstrings uses speech recognition for voice search</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

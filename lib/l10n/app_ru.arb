@@ -45,5 +45,9 @@
   "english": "English",
   "russian": "Русский",
   "romanian": "Romana",
+  "metronome": "Метроном",
+  "bpm": "BPM",
+  "tapTempo": "Тап темп",
+  "timeSignature": "Размер",
   "failed": "Ошибка: {error}"
 }
