@@ -7,8 +7,9 @@ class ChordLineWidget extends StatelessWidget {
   final double fontSize;
   final int sectionIndex;
   final int lineIndex;
-  final Set<String> currentChordKeys; // Keys like "s:l:c" for current chord
-  final Set<String> nextChordKeys; // Keys like "s:l:c" for next chord
+  final Set<String> currentChordKeys;
+  final Set<String> nextChordKeys;
+  final bool isActiveLine;
 
   const ChordLineWidget({
     super.key,
@@ -18,6 +19,7 @@ class ChordLineWidget extends StatelessWidget {
     this.lineIndex = 0,
     this.currentChordKeys = const {},
     this.nextChordKeys = const {},
+    this.isActiveLine = false,
   });
 
   @override
@@ -26,8 +28,25 @@ class ChordLineWidget extends StatelessWidget {
       return const SizedBox(height: 12);
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+    final theme = Theme.of(context);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(vertical: 2, horizontal: 4),
+      decoration: BoxDecoration(
+        color: isActiveLine
+            ? theme.colorScheme.primary.withValues(alpha: 0.08)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+        border: isActiveLine
+            ? Border(
+                left: BorderSide(
+                  color: theme.colorScheme.primary,
+                  width: 3,
+                ),
+              )
+            : null,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -58,6 +77,10 @@ class ChordLineWidget extends StatelessWidget {
                 style: TextStyle(
                   fontSize: fontSize,
                   height: 1.5,
+                  fontWeight: isActiveLine ? FontWeight.w500 : FontWeight.normal,
+                  color: isActiveLine
+                      ? theme.colorScheme.onSurface
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.85),
                 ),
               ),
             ),

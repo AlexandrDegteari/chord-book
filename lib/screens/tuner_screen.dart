@@ -29,7 +29,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
   Timer? _silenceTimer;
 
   final List<double> _pitchHistory = [];
-  static const _historySize = 5;
+  static const _historySize = 2;
 
   static const _guitarStrings = [
     (name: 'E2', freq: 82.41, string: 6),

@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import '../config/design_tokens.dart';
 
 class ChordDetectorOverlay extends StatelessWidget {
+  final String detectedChord;
   final String detectedNote;
-  final double frequency;
   final bool isListening;
   final String? error;
   final VoidCallback onToggle;
 
   const ChordDetectorOverlay({
     super.key,
+    required this.detectedChord,
     required this.detectedNote,
-    required this.frequency,
     required this.isListening,
     required this.onToggle,
     this.error,
@@ -31,7 +31,6 @@ class ChordDetectorOverlay extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Error
           if (error != null)
             Container(
               margin: const EdgeInsets.only(bottom: DesignTokens.spacingSm),
@@ -40,16 +39,10 @@ class ChordDetectorOverlay extends StatelessWidget {
                 color: theme.colorScheme.errorContainer,
                 borderRadius: BorderRadius.circular(DesignTokens.radiusSm),
               ),
-              child: Text(
-                error!,
-                style: TextStyle(
-                  color: theme.colorScheme.onErrorContainer,
-                  fontSize: 12,
-                ),
-              ),
+              child: Text(error!,
+                  style: TextStyle(color: theme.colorScheme.onErrorContainer, fontSize: 12)),
             ),
-          // Detected note badge
-          if (isListening && detectedNote.isNotEmpty)
+          if (isListening && detectedChord.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(bottom: DesignTokens.spacingSm),
               padding: const EdgeInsets.symmetric(
@@ -70,14 +63,11 @@ class ChordDetectorOverlay extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.music_note,
-                    color: theme.colorScheme.onPrimaryContainer,
-                    size: 20,
-                  ),
+                  Icon(Icons.music_note,
+                      color: theme.colorScheme.onPrimaryContainer, size: 20),
                   const SizedBox(width: DesignTokens.spacingSm),
                   Text(
-                    detectedNote,
+                    detectedChord,
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -85,20 +75,10 @@ class ChordDetectorOverlay extends StatelessWidget {
                       color: theme.colorScheme.onPrimaryContainer,
                     ),
                   ),
-                  const SizedBox(width: DesignTokens.spacingSm),
-                  Text(
-                    '${frequency.toStringAsFixed(0)} Hz',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                      color: theme.colorScheme.onPrimaryContainer
-                          .withValues(alpha: 0.7),
-                    ),
-                  ),
                 ],
               ),
             ),
-          if (isListening && detectedNote.isEmpty)
+          if (isListening && detectedChord.isEmpty)
             Container(
               margin: const EdgeInsets.only(bottom: DesignTokens.spacingSm),
               padding: const EdgeInsets.symmetric(
@@ -113,35 +93,22 @@ class ChordDetectorOverlay extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SizedBox(
-                    width: 16,
-                    height: 16,
+                    width: 16, height: 16,
                     child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: theme.colorScheme.primary,
-                    ),
+                        strokeWidth: 2, color: theme.colorScheme.primary),
                   ),
                   const SizedBox(width: DesignTokens.spacingSm),
-                  Text(
-                    'Listening...',
-                    style: TextStyle(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontSize: 14,
-                    ),
-                  ),
+                  Text('Listening...',
+                      style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 14)),
                 ],
               ),
             ),
-          // Mic toggle FAB
           FloatingActionButton(
             heroTag: 'mic_toggle',
             onPressed: onToggle,
-            backgroundColor: isListening
-                ? theme.colorScheme.error
-                : theme.colorScheme.primary,
-            child: Icon(
-              isListening ? Icons.mic_off : Icons.mic,
-              color: Colors.white,
-            ),
+            backgroundColor:
+                isListening ? theme.colorScheme.error : theme.colorScheme.primary,
+            child: Icon(isListening ? Icons.mic_off : Icons.mic, color: Colors.white),
           ),
         ],
       ),

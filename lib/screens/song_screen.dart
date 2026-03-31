@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/design_tokens.dart';
@@ -11,18 +13,22 @@ import '../widgets/chord_detector_overlay.dart';
 import '../widgets/chord_line.dart';
 import '../widgets/section_header.dart';
 
-/// A position in the flat chord sequence: section, line, chord index.
+/// A position in the flat chord sequence.
 class _ChordPosition {
   final int section;
   final int line;
   final int chord;
-  final String root; // Normalized root note (e.g. "A", "C#")
+  final String root;
+  final String quality;
+  final Float64List chromaTemplate; // pre-computed chroma for this chord
 
   const _ChordPosition({
     required this.section,
     required this.line,
     required this.chord,
     required this.root,
+    required this.quality,
+    required this.chromaTemplate,
   });
 }
 
@@ -47,22 +53,32 @@ class _SongScreenState extends ConsumerState<SongScreen> {
   final ScrollController _scrollController = ScrollController();
   final Map<String, GlobalKey> _lineKeys = {};
 
-  // Linear chord progression
+  // Chord progression
   List<_ChordPosition> _chordSequence = [];
   int _currentChordIndex = 0;
-  String _lastAdvancedNote = '';
+  bool _canAdvance = true;
+  Timer? _cooldownTimer;
+
+  static const _noteNames = [
+    'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'
+  ];
+
+  // Chord templates
+  static const Map<String, List<int>> _chordTypes = {
+    '':     [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0],
+    'm':    [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
+    '7':    [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],
+    'm7':   [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0],
+    'maj7': [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1],
+    'dim':  [1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0],
+    'aug':  [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
+    'sus2': [1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+    'sus4': [1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0],
+  };
 
   @override
   void initState() {
     super.initState();
-    // Listen to audio state changes outside of build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.listen<AudioState>(audioProvider, (prev, next) {
-        if (next.isListening && next.detectedNote.isNotEmpty) {
-          _onNoteDetected(next.detectedNote);
-        }
-      });
-    });
   }
 
   @override
@@ -75,23 +91,52 @@ class _SongScreenState extends ConsumerState<SongScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _cooldownTimer?.cancel();
     super.dispose();
   }
 
   String _lineKeyId(int s, int l) => '$s:$l';
 
-  /// Build a flat ordered list of all chord positions in the song.
+  int _noteToIndex(String note) {
+    const flatToSharp = {
+      'Db': 'C#', 'Eb': 'D#', 'Fb': 'E', 'Gb': 'F#',
+      'Ab': 'G#', 'Bb': 'A#', 'Cb': 'B',
+    };
+    final normalized = flatToSharp[note] ?? note;
+    final idx = _noteNames.indexOf(normalized);
+    return idx >= 0 ? idx : 0;
+  }
+
+  /// Build chroma template for a chord.
+  Float64List _buildChromaTemplate(String root, String quality) {
+    final rootIdx = _noteToIndex(root);
+    // Find best matching template
+    final baseTemplate = _chordTypes[quality] ??
+        _chordTypes[quality.replaceAll(RegExp(r'[0-9/].*'), '')] ??
+        _chordTypes['']!;
+
+    final chroma = Float64List(12);
+    for (int i = 0; i < 12; i++) {
+      chroma[i] = baseTemplate[(i - rootIdx + 12) % 12].toDouble();
+    }
+    return chroma;
+  }
+
+  /// Build flat chord sequence with pre-computed chroma templates.
   void _buildChordSequence(Song song) {
     final seq = <_ChordPosition>[];
     for (int s = 0; s < song.sections.length; s++) {
       for (int l = 0; l < song.sections[s].lines.length; l++) {
         final chords = song.sections[s].lines[l].chords;
         for (int c = 0; c < chords.length; c++) {
+          final chord = chords[c];
           seq.add(_ChordPosition(
             section: s,
             line: l,
             chord: c,
-            root: _normalizeNote(chords[c].root),
+            root: chord.root,
+            quality: chord.quality,
+            chromaTemplate: _buildChromaTemplate(chord.root, chord.quality),
           ));
         }
       }
@@ -99,37 +144,40 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     _chordSequence = seq;
   }
 
-  /// Normalize note names: Db→C#, Eb→D#, etc.
-  String _normalizeNote(String note) {
-    const flatToSharp = {
-      'Db': 'C#', 'Eb': 'D#', 'Fb': 'E', 'Gb': 'F#',
-      'Ab': 'G#', 'Bb': 'A#', 'Cb': 'B',
-    };
-    return flatToSharp[note] ?? note;
-  }
-
-  /// Advance when detected note matches the current expected chord root.
-  void _onNoteDetected(String detectedNote) {
-    if (detectedNote.isEmpty) return;
+  /// Compute chroma from raw PCM16 audio and match against expected chords.
+  void _onRawAudioForChordMatch(AudioState audioState) {
+    if (!audioState.isListening) return;
     if (_chordSequence.isEmpty) return;
     if (_currentChordIndex >= _chordSequence.length) return;
+    if (!_canAdvance) return;
 
-    final normalized = _normalizeNote(detectedNote);
+    // Use detectedNote as a proxy — match root note against expected chord
+    final detectedNote = audioState.detectedNote;
+    if (detectedNote.isEmpty) return;
 
-    // Don't re-trigger on the same note continuously
-    if (normalized == _lastAdvancedNote) return;
+    final expected = _chordSequence[_currentChordIndex];
+    final expectedRoot = _noteToIndex(expected.root);
+    final detectedRoot = _noteToIndex(detectedNote);
 
-    final current = _chordSequence[_currentChordIndex];
-    if (normalized == current.root) {
-      _lastAdvancedNote = normalized;
-      setState(() {
-        _currentChordIndex++;
-      });
-      // Scroll to the current chord's line
-      if (_currentChordIndex < _chordSequence.length) {
-        final next = _chordSequence[_currentChordIndex];
-        _scrollToLine(next.section, next.line);
-      }
+    if (detectedRoot == expectedRoot) {
+      _advanceChord();
+    }
+  }
+
+  void _advanceChord() {
+    _canAdvance = false;
+    _cooldownTimer?.cancel();
+    _cooldownTimer = Timer(const Duration(milliseconds: 800), () {
+      _canAdvance = true;
+    });
+
+    setState(() {
+      _currentChordIndex++;
+    });
+
+    if (_currentChordIndex < _chordSequence.length) {
+      final next = _chordSequence[_currentChordIndex];
+      _scrollToLine(next.section, next.line);
     }
   }
 
@@ -159,8 +207,16 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     }
   }
 
-  /// Get the set of active chord display names for a given line.
-  /// Returns (currentChords, nextChords) — sets of chord display strings.
+  /// Get current active line (section, line) based on chord index.
+  (int section, int line)? get _activeLine {
+    if (_chordSequence.isEmpty || _currentChordIndex >= _chordSequence.length) {
+      return null;
+    }
+    final pos = _chordSequence[_currentChordIndex];
+    return (pos.section, pos.line);
+  }
+
+  /// Get highlights for a line.
   ({Set<String> current, Set<String> next}) _getLineHighlights(
       int sectionIdx, int lineIdx) {
     final currentSet = <String>{};
@@ -168,12 +224,11 @@ class _SongScreenState extends ConsumerState<SongScreen> {
 
     if (_chordSequence.isEmpty) return (current: currentSet, next: nextSet);
 
-    // Current chord (the one being played)
+    // Current chord (just played)
     final curIdx = _currentChordIndex > 0 ? _currentChordIndex - 1 : -1;
     if (curIdx >= 0 && curIdx < _chordSequence.length) {
       final pos = _chordSequence[curIdx];
       if (pos.section == sectionIdx && pos.line == lineIdx) {
-        // Get the display name from the song data
         currentSet.add('$sectionIdx:$lineIdx:${pos.chord}');
       }
     }
@@ -200,9 +255,16 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     final displayArtist = songAsync.value?.artist ?? widget.artist;
     final songId = songAsync.value?.id ?? '';
 
-    // Build chord sequence when song loads (synchronous, no setState needed)
+    // Build chord sequence when song loads
     if (songAsync.value != null && _chordSequence.isEmpty) {
       _buildChordSequence(songAsync.value!);
+    }
+
+    // Match detected note against expected chord
+    if (audioState.isListening && audioState.detectedNote.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _onRawAudioForChordMatch(audioState);
+      });
     }
 
     return Scaffold(
@@ -210,13 +272,10 @@ class _SongScreenState extends ConsumerState<SongScreen> {
         title: Column(
           children: [
             Text(displayTitle,
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600)),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             if (displayArtist.isNotEmpty)
               Text(displayArtist,
-                  style: TextStyle(
-                      fontSize: 12,
-                      color: theme.colorScheme.onSurfaceVariant)),
+                  style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
           ],
         ),
         actions: [
@@ -230,10 +289,8 @@ class _SongScreenState extends ConsumerState<SongScreen> {
                 onPressed: () {
                   final song = songAsync.value!;
                   ref.read(favoritesProvider.notifier).toggle(SearchResult(
-                    id: song.id,
-                    title: song.title,
-                    artist: song.artist,
-                    url: widget.songUrl,
+                    id: song.id, title: song.title,
+                    artist: song.artist, url: widget.songUrl,
                   ));
                 },
               );
@@ -247,24 +304,17 @@ class _SongScreenState extends ConsumerState<SongScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.error_outline,
-                      size: 48, color: theme.colorScheme.error),
+                  Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
                   const SizedBox(height: DesignTokens.spacingSm),
                   Text('Failed to load song',
-                      style: TextStyle(
-                          fontSize: 16, color: theme.colorScheme.error)),
+                      style: TextStyle(fontSize: 16, color: theme.colorScheme.error)),
                   const SizedBox(height: DesignTokens.spacingXs),
-                  Text('$error',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontSize: 13,
-                          color: theme.colorScheme.onSurfaceVariant)),
+                  Text('$error', textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: theme.colorScheme.onSurfaceVariant)),
                   const SizedBox(height: DesignTokens.spacingMd),
                   FilledButton.icon(
-                    onPressed: () =>
-                        ref.invalidate(currentSongProvider(widget.songUrl)),
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Retry'),
+                    onPressed: () => ref.invalidate(currentSongProvider(widget.songUrl)),
+                    icon: const Icon(Icons.refresh), label: const Text('Retry'),
                   ),
                 ],
               ),
@@ -279,20 +329,19 @@ class _SongScreenState extends ConsumerState<SongScreen> {
                 ],
               ),
               Positioned(
-                bottom: 0,
-                right: 0,
+                bottom: 0, right: 0,
                 child: ChordDetectorOverlay(
+                  detectedChord: audioState.detectedChord,
                   detectedNote: audioState.detectedNote,
-                  frequency: audioState.frequency,
                   isListening: audioState.isListening,
                   error: audioState.error,
                   onToggle: () {
                     ref.read(audioProvider.notifier).toggle();
-                    // Reset progression when toggling
                     setState(() {
                       _currentChordIndex = 0;
-                      _lastAdvancedNote = '';
+                      _canAdvance = true;
                     });
+                    _cooldownTimer?.cancel();
                   },
                 ),
               ),
@@ -304,13 +353,13 @@ class _SongScreenState extends ConsumerState<SongScreen> {
   }
 
   Widget _buildSongContent(Song song, AudioState audioState) {
+    final active = audioState.isListening ? _activeLine : null;
+
     return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.only(
-        left: DesignTokens.spacingMd,
-        right: DesignTokens.spacingMd,
-        top: DesignTokens.spacingMd,
-        bottom: 100,
+        left: DesignTokens.spacingMd, right: DesignTokens.spacingMd,
+        top: DesignTokens.spacingMd, bottom: 100,
       ),
       itemCount: song.sections.length,
       itemBuilder: (context, sectionIndex) {
@@ -324,10 +373,12 @@ class _SongScreenState extends ConsumerState<SongScreen> {
               final keyId = _lineKeyId(sectionIndex, lineIndex);
               _lineKeys.putIfAbsent(keyId, () => GlobalKey());
 
-              // Get highlights for this line
               final highlights = audioState.isListening
                   ? _getLineHighlights(sectionIndex, lineIndex)
                   : (current: <String>{}, next: <String>{});
+
+              final isActiveLine = active != null &&
+                  active.$1 == sectionIndex && active.$2 == lineIndex;
 
               return KeyedSubtree(
                 key: _lineKeys[keyId],
@@ -338,6 +389,7 @@ class _SongScreenState extends ConsumerState<SongScreen> {
                   lineIndex: lineIndex,
                   currentChordKeys: highlights.current,
                   nextChordKeys: highlights.next,
+                  isActiveLine: isActiveLine,
                 ),
               );
             }),
@@ -352,24 +404,18 @@ class _SongScreenState extends ConsumerState<SongScreen> {
   Widget _buildToolbar(ThemeData theme, int transpose) {
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: DesignTokens.spacingSm,
-        vertical: DesignTokens.spacingXs,
+        horizontal: DesignTokens.spacingSm, vertical: DesignTokens.spacingXs,
       ),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
-        border: Border(
-          bottom: BorderSide(
-              color: theme.colorScheme.outlineVariant, width: 0.5),
-        ),
+        border: Border(bottom: BorderSide(color: theme.colorScheme.outlineVariant, width: 0.5)),
       ),
       child: Row(
         children: [
           IconButton(
-            onPressed: () =>
-                ref.read(transposeProvider.notifier).decrement(),
+            onPressed: () => ref.read(transposeProvider.notifier).decrement(),
             icon: const Icon(Icons.remove, size: 18),
-            tooltip: 'Transpose down',
-            visualDensity: VisualDensity.compact,
+            tooltip: 'Transpose down', visualDensity: VisualDensity.compact,
           ),
           Container(
             constraints: const BoxConstraints(minWidth: 36),
@@ -377,26 +423,19 @@ class _SongScreenState extends ConsumerState<SongScreen> {
             child: Text(
               ChordUtils.formatTranspose(transpose),
               style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                fontFamily: 'monospace',
-                color: transpose != 0
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.onSurface,
+                fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'monospace',
+                color: transpose != 0 ? theme.colorScheme.primary : theme.colorScheme.onSurface,
               ),
             ),
           ),
           IconButton(
-            onPressed: () =>
-                ref.read(transposeProvider.notifier).increment(),
+            onPressed: () => ref.read(transposeProvider.notifier).increment(),
             icon: const Icon(Icons.add, size: 18),
-            tooltip: 'Transpose up',
-            visualDensity: VisualDensity.compact,
+            tooltip: 'Transpose up', visualDensity: VisualDensity.compact,
           ),
           if (transpose != 0)
             TextButton(
-              onPressed: () =>
-                  ref.read(transposeProvider.notifier).reset(),
+              onPressed: () => ref.read(transposeProvider.notifier).reset(),
               style: TextButton.styleFrom(
                   visualDensity: VisualDensity.compact,
                   padding: const EdgeInsets.symmetric(horizontal: 8)),
@@ -404,21 +443,16 @@ class _SongScreenState extends ConsumerState<SongScreen> {
             ),
           const Spacer(),
           IconButton(
-            onPressed:
-                _fontSize > 12 ? () => setState(() => _fontSize -= 2) : null,
+            onPressed: _fontSize > 12 ? () => setState(() => _fontSize -= 2) : null,
             icon: const Icon(Icons.text_decrease, size: 18),
-            tooltip: 'Smaller text',
-            visualDensity: VisualDensity.compact,
+            tooltip: 'Smaller text', visualDensity: VisualDensity.compact,
           ),
           Text('${_fontSize.toInt()}',
-              style: TextStyle(
-                  fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
+              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
           IconButton(
-            onPressed:
-                _fontSize < 24 ? () => setState(() => _fontSize += 2) : null,
+            onPressed: _fontSize < 24 ? () => setState(() => _fontSize += 2) : null,
             icon: const Icon(Icons.text_increase, size: 18),
-            tooltip: 'Larger text',
-            visualDensity: VisualDensity.compact,
+            tooltip: 'Larger text', visualDensity: VisualDensity.compact,
           ),
         ],
       ),
