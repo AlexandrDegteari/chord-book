@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/design_tokens.dart';
@@ -13,22 +12,17 @@ import '../widgets/chord_detector_overlay.dart';
 import '../widgets/chord_line.dart';
 import '../widgets/section_header.dart';
 
-/// A position in the flat chord sequence.
 class _ChordPosition {
   final int section;
   final int line;
   final int chord;
   final String root;
-  final String quality;
-  final Float64List chromaTemplate; // pre-computed chroma for this chord
 
   const _ChordPosition({
     required this.section,
     required this.line,
     required this.chord,
     required this.root,
-    required this.quality,
-    required this.chromaTemplate,
   });
 }
 
@@ -53,51 +47,20 @@ class _SongScreenState extends ConsumerState<SongScreen> {
   final ScrollController _scrollController = ScrollController();
   final Map<String, GlobalKey> _lineKeys = {};
 
-  // Chord progression
   List<_ChordPosition> _chordSequence = [];
   int _currentChordIndex = 0;
   bool _canAdvance = true;
   Timer? _cooldownTimer;
+  String _lastSongId = '';
 
   static const _noteNames = [
     'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'
   ];
 
-  // Chord templates
-  static const Map<String, List<int>> _chordTypes = {
-    '':     [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0],
-    'm':    [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0],
-    '7':    [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0],
-    'm7':   [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0],
-    'maj7': [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1],
-    'dim':  [1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0],
-    'aug':  [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0],
-    'sus2': [1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0],
-    'sus4': [1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0],
-  };
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      ref.listen<AudioState>(audioProvider, (prev, next) {
-        if (!mounted) return;
-        if (next.isListening && next.detectedNote.isNotEmpty) {
-          // Schedule outside of provider notification to avoid modify-during-build
-          Future.microtask(() {
-            if (mounted) _onRawAudioForChordMatch(next);
-          });
-        }
-      });
-    });
-  }
-
   @override
   void dispose() {
     _cooldownTimer?.cancel();
     _scrollController.dispose();
-    // Defer provider modifications to avoid modify-during-build
     Future.microtask(() {
       ref.read(transposeProvider.notifier).reset();
       ref.read(audioProvider.notifier).stopListening();
@@ -117,77 +80,56 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     return idx >= 0 ? idx : 0;
   }
 
-  /// Build chroma template for a chord.
-  Float64List _buildChromaTemplate(String root, String quality) {
-    final rootIdx = _noteToIndex(root);
-    // Find best matching template
-    final baseTemplate = _chordTypes[quality] ??
-        _chordTypes[quality.replaceAll(RegExp(r'[0-9/].*'), '')] ??
-        _chordTypes['']!;
+  /// Rebuild chord sequence from the TRANSPOSED song (what user sees on screen).
+  void _rebuildChordSequence(Song song, int transpose) {
+    final key = '${song.id}_$transpose';
+    if (_lastSongId == key) return; // already built for this version
+    _lastSongId = key;
 
-    final chroma = Float64List(12);
-    for (int i = 0; i < 12; i++) {
-      chroma[i] = baseTemplate[(i - rootIdx + 12) % 12].toDouble();
-    }
-    return chroma;
-  }
-
-  /// Build flat chord sequence with pre-computed chroma templates.
-  void _buildChordSequence(Song song) {
     final seq = <_ChordPosition>[];
     for (int s = 0; s < song.sections.length; s++) {
       for (int l = 0; l < song.sections[s].lines.length; l++) {
         final chords = song.sections[s].lines[l].chords;
         for (int c = 0; c < chords.length; c++) {
-          final chord = chords[c];
           seq.add(_ChordPosition(
             section: s,
             line: l,
             chord: c,
-            root: chord.root,
-            quality: chord.quality,
-            chromaTemplate: _buildChromaTemplate(chord.root, chord.quality),
+            root: chords[c].root,
           ));
         }
       }
     }
     _chordSequence = seq;
+    _currentChordIndex = 0;
+    _canAdvance = true;
   }
 
-  /// Compute chroma from raw PCM16 audio and match against expected chords.
-  void _onRawAudioForChordMatch(AudioState audioState) {
-    if (!audioState.isListening) return;
+  void _onNoteDetected(String detectedNote) {
+    if (detectedNote.isEmpty) return;
     if (_chordSequence.isEmpty) return;
     if (_currentChordIndex >= _chordSequence.length) return;
     if (!_canAdvance) return;
-
-    // Use detectedNote as a proxy — match root note against expected chord
-    final detectedNote = audioState.detectedNote;
-    if (detectedNote.isEmpty) return;
 
     final expected = _chordSequence[_currentChordIndex];
     final expectedRoot = _noteToIndex(expected.root);
     final detectedRoot = _noteToIndex(detectedNote);
 
     if (detectedRoot == expectedRoot) {
-      _advanceChord();
-    }
-  }
+      _canAdvance = false;
+      _cooldownTimer?.cancel();
+      _cooldownTimer = Timer(const Duration(milliseconds: 600), () {
+        _canAdvance = true;
+      });
 
-  void _advanceChord() {
-    _canAdvance = false;
-    _cooldownTimer?.cancel();
-    _cooldownTimer = Timer(const Duration(milliseconds: 800), () {
-      _canAdvance = true;
-    });
+      setState(() {
+        _currentChordIndex++;
+      });
 
-    setState(() {
-      _currentChordIndex++;
-    });
-
-    if (_currentChordIndex < _chordSequence.length) {
-      final next = _chordSequence[_currentChordIndex];
-      _scrollToLine(next.section, next.line);
+      if (_currentChordIndex < _chordSequence.length) {
+        final next = _chordSequence[_currentChordIndex];
+        _scrollToLine(next.section, next.line);
+      }
     }
   }
 
@@ -203,8 +145,7 @@ class _SongScreenState extends ConsumerState<SongScreen> {
         .findRenderObject() as RenderBox?;
     if (scrollRenderBox == null) return;
 
-    final pos =
-        renderBox.localToGlobal(Offset.zero, ancestor: scrollRenderBox);
+    final pos = renderBox.localToGlobal(Offset.zero, ancestor: scrollRenderBox);
     final viewportHeight = _scrollController.position.viewportDimension;
 
     if (pos.dy > viewportHeight * 0.6 || pos.dy < viewportHeight * 0.2) {
@@ -217,7 +158,6 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     }
   }
 
-  /// Get current active line (section, line) based on chord index.
   (int section, int line)? get _activeLine {
     if (_chordSequence.isEmpty || _currentChordIndex >= _chordSequence.length) {
       return null;
@@ -226,7 +166,6 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     return (pos.section, pos.line);
   }
 
-  /// Get highlights for a line.
   ({Set<String> current, Set<String> next}) _getLineHighlights(
       int sectionIdx, int lineIdx) {
     final currentSet = <String>{};
@@ -234,7 +173,6 @@ class _SongScreenState extends ConsumerState<SongScreen> {
 
     if (_chordSequence.isEmpty) return (current: currentSet, next: nextSet);
 
-    // Current chord (just played)
     final curIdx = _currentChordIndex > 0 ? _currentChordIndex - 1 : -1;
     if (curIdx >= 0 && curIdx < _chordSequence.length) {
       final pos = _chordSequence[curIdx];
@@ -243,7 +181,6 @@ class _SongScreenState extends ConsumerState<SongScreen> {
       }
     }
 
-    // Next chord (on deck)
     if (_currentChordIndex < _chordSequence.length) {
       final pos = _chordSequence[_currentChordIndex];
       if (pos.section == sectionIdx && pos.line == lineIdx) {
@@ -265,10 +202,21 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     final displayArtist = songAsync.value?.artist ?? widget.artist;
     final songId = songAsync.value?.id ?? '';
 
-    // Build chord sequence when song loads
-    if (songAsync.value != null && _chordSequence.isEmpty) {
-      _buildChordSequence(songAsync.value!);
+    // Rebuild chord sequence from transposed song (updates on transpose too)
+    if (songAsync.value != null) {
+      _rebuildChordSequence(songAsync.value!, transpose);
     }
+
+    // Listen for audio note changes — ref.listen in build is the standard Riverpod pattern
+    // Its callback fires AFTER build completes, so setState is safe here
+    ref.listen<AudioState>(audioProvider, (prev, next) {
+      if (!mounted) return;
+      if (next.isListening && next.detectedNote.isNotEmpty) {
+        if (prev?.detectedNote != next.detectedNote) {
+          _onNoteDetected(next.detectedNote);
+        }
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
