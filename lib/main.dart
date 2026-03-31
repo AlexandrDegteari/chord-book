@@ -4,5 +4,5 @@ import 'app.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: ChordBookApp()));
+  runApp(const ProviderScope(child: SixstringsApp()));
 }

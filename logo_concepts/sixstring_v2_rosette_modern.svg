@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Sixstring V2: Modern rosette with gradient accent and "6" motif -->
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#111827"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="ring_grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F97316"/>
+      <stop offset="50%" stop-color="#EF4444"/>
+      <stop offset="100%" stop-color="#F97316"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="200" height="200" rx="40" fill="url(#bg2)"/>
+
+  <!-- Outer rosette with gradient -->
+  <circle cx="100" cy="88" r="58" fill="none" stroke="url(#ring_grad)" stroke-width="4"/>
+
+  <!-- Broken inner ring (6 arcs for 6 strings motif) -->
+  <path d="M100 40 A50 50 0 0 1 143 63" fill="none" stroke="#F97316" stroke-width="1.5" opacity="0.4" stroke-linecap="round"/>
+  <path d="M148 75 A50 50 0 0 1 148 101" fill="none" stroke="#F97316" stroke-width="1.5" opacity="0.4" stroke-linecap="round"/>
+  <path d="M143 113 A50 50 0 0 1 100 136" fill="none" stroke="#F97316" stroke-width="1.5" opacity="0.4" stroke-linecap="round"/>
+  <path d="M88 135 A50 50 0 0 1 57 113" fill="none" stroke="#F97316" stroke-width="1.5" opacity="0.4" stroke-linecap="round"/>
+  <path d="M52 101 A50 50 0 0 1 52 75" fill="none" stroke="#F97316" stroke-width="1.5" opacity="0.4" stroke-linecap="round"/>
+  <path d="M57 63 A50 50 0 0 1 88 41" fill="none" stroke="#F97316" stroke-width="1.5" opacity="0.4" stroke-linecap="round"/>
+
+  <!-- Sound hole -->
+  <circle cx="100" cy="88" r="38" fill="#080d16"/>
+
+  <!-- Stylized "6" inside the hole -->
+  <text x="100" y="103" text-anchor="middle" font-family="SF Pro Display, Helvetica, Arial" font-size="48" font-weight="200" fill="#F97316" opacity="0.25">6</text>
+
+  <!-- 6 strings converging to center -->
+  <line x1="80" y1="30" x2="97" y2="85" stroke="#F97316" stroke-width="0.6" opacity="0.6"/>
+  <line x1="88" y1="30" x2="98" y2="85" stroke="#F97316" stroke-width="0.8" opacity="0.6"/>
+  <line x1="96" y1="30" x2="99" y2="85" stroke="#F97316" stroke-width="1.0" opacity="0.6"/>
+  <line x1="104" y1="30" x2="101" y2="85" stroke="#F97316" stroke-width="1.0" opacity="0.6"/>
+  <line x1="112" y1="30" x2="102" y2="85" stroke="#F97316" stroke-width="0.8" opacity="0.6"/>
+  <line x1="120" y1="30" x2="103" y2="85" stroke="#F97316" stroke-width="0.6" opacity="0.6"/>
+
+  <!-- Strings fanning out below -->
+  <line x1="97" y1="91" x2="80" y2="150" stroke="#F97316" stroke-width="0.6" opacity="0.4"/>
+  <line x1="98" y1="91" x2="88" y2="150" stroke="#F97316" stroke-width="0.8" opacity="0.4"/>
+  <line x1="99" y1="91" x2="96" y2="150" stroke="#F97316" stroke-width="1.0" opacity="0.4"/>
+  <line x1="101" y1="91" x2="104" y2="150" stroke="#F97316" stroke-width="1.0" opacity="0.4"/>
+  <line x1="102" y1="91" x2="112" y2="150" stroke="#F97316" stroke-width="0.8" opacity="0.4"/>
+  <line x1="103" y1="91" x2="120" y2="150" stroke="#F97316" stroke-width="0.6" opacity="0.4"/>
+
+  <!-- Center bridge dot -->
+  <circle cx="100" cy="88" r="2.5" fill="#F97316" opacity="0.9"/>
+
+  <!-- App name -->
+  <text x="100" y="175" text-anchor="middle" font-family="SF Pro Display, Helvetica, Arial" font-size="16" font-weight="700" fill="#ffffff" letter-spacing="5">SIXSTRING</text>
+
+  <!-- Slogan -->
+  <text x="100" y="192" text-anchor="middle" font-family="SF Pro Display, Helvetica, Arial" font-size="7" font-weight="300" fill="#F97316" opacity="0.6" letter-spacing="1.5">SIX STRINGS. INFINITE SONGS.</text>
+</svg>

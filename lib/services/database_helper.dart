@@ -15,7 +15,7 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDb() async {
-    final path = join(await getDatabasesPath(), 'chordbook.db');
+    final path = join(await getDatabasesPath(), 'sixstrings.db');
     return openDatabase(
       path,
       version: 1,

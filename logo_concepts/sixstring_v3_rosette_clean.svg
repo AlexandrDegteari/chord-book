@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Sixstring V3: Clean rosette with chord diagram + tuning fork -->
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#18181b"/>
+      <stop offset="100%" stop-color="#09090b"/>
+    </linearGradient>
+    <linearGradient id="warm" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FBBF24"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="200" height="200" rx="40" fill="url(#bg3)"/>
+
+  <!-- Outer rosette - thick elegant ring -->
+  <circle cx="100" cy="88" r="56" fill="none" stroke="#FBBF24" stroke-width="2.5"/>
+  <circle cx="100" cy="88" r="60" fill="none" stroke="#FBBF24" stroke-width="0.5" opacity="0.3"/>
+  <circle cx="100" cy="88" r="63" fill="none" stroke="#FBBF24" stroke-width="0.3" opacity="0.15"/>
+
+  <!-- Sound hole -->
+  <circle cx="100" cy="88" r="48" fill="#0c0c0e"/>
+
+  <!-- 6 vertical strings through center -->
+  <line x1="84" y1="42" x2="84" y2="134" stroke="#FBBF24" stroke-width="0.5" opacity="0.35"/>
+  <line x1="90" y1="38" x2="90" y2="138" stroke="#FBBF24" stroke-width="0.7" opacity="0.4"/>
+  <line x1="96" y1="34" x2="96" y2="142" stroke="#FBBF24" stroke-width="0.9" opacity="0.45"/>
+  <line x1="104" y1="34" x2="104" y2="142" stroke="#FBBF24" stroke-width="0.9" opacity="0.45"/>
+  <line x1="110" y1="38" x2="110" y2="138" stroke="#FBBF24" stroke-width="0.7" opacity="0.4"/>
+  <line x1="116" y1="42" x2="116" y2="134" stroke="#FBBF24" stroke-width="0.5" opacity="0.35"/>
+
+  <!-- Bridge/saddle line -->
+  <line x1="78" y1="110" x2="122" y2="110" stroke="#FBBF24" stroke-width="1.5" opacity="0.6"/>
+
+  <!-- Tuning fork above rosette -->
+  <line x1="100" y1="18" x2="100" y2="32" stroke="#FBBF24" stroke-width="1.8" opacity="0.7"/>
+  <path d="M94 18 Q94 10 100 7 Q106 10 106 18" fill="none" stroke="#FBBF24" stroke-width="1.8" opacity="0.7"/>
+
+  <!-- Vibration lines from tuning fork -->
+  <path d="M90 12 Q88 14 90 16" fill="none" stroke="#FBBF24" stroke-width="0.8" opacity="0.3"/>
+  <path d="M110 12 Q112 14 110 16" fill="none" stroke="#FBBF24" stroke-width="0.8" opacity="0.3"/>
+
+  <!-- Chord dots on strings (forming a chord shape) -->
+  <circle cx="90" cy="72" r="3" fill="#FBBF24" opacity="0.8"/>
+  <circle cx="96" cy="82" r="3" fill="#FBBF24" opacity="0.8"/>
+  <circle cx="104" cy="82" r="3" fill="#FBBF24" opacity="0.8"/>
+  <circle cx="116" cy="72" r="3" fill="#FBBF24" opacity="0.8"/>
+
+  <!-- Open string indicators -->
+  <circle cx="84" cy="60" r="2.5" fill="none" stroke="#FBBF24" stroke-width="1" opacity="0.6"/>
+  <circle cx="110" cy="60" r="2.5" fill="none" stroke="#FBBF24" stroke-width="1" opacity="0.6"/>
+
+  <!-- App name -->
+  <text x="100" y="174" text-anchor="middle" font-family="SF Pro Display, Helvetica, Arial" font-size="17" font-weight="600" fill="url(#warm)" letter-spacing="4">SIXSTRING</text>
+
+  <!-- Slogan -->
+  <text x="100" y="191" text-anchor="middle" font-family="SF Pro Display, Helvetica, Arial" font-size="7" font-weight="300" fill="#FBBF24" opacity="0.45" letter-spacing="1.5">SIX STRINGS. INFINITE SONGS.</text>
+</svg>

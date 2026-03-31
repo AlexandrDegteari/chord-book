@@ -1,21 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../l10n/generated/app_localizations.dart';
 import 'config/theme.dart';
+import 'providers/locale_provider.dart';
 import 'providers/theme_provider.dart';
 import 'router/app_router.dart';
 
-class ChordBookApp extends ConsumerWidget {
-  const ChordBookApp({super.key});
+class SixstringsApp extends ConsumerWidget {
+  const SixstringsApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeProvider);
+    final locale = ref.watch(localeProvider);
 
     return MaterialApp.router(
-      title: 'ChordBook',
+      title: 'Sixstrings',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
       routerConfig: appRouter,
       debugShowCheckedModeBanner: false,
     );

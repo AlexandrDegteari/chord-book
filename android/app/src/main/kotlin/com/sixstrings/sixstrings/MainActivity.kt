@@ -1,4 +1,4 @@
-package com.chordbook.chordbook
+package com.sixstrings.sixstrings
 
 import io.flutter.embedding.android.FlutterActivity
 

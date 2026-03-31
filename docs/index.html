@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SixStrings - Chords and Tuner</title>
+  <meta name="description" content="Your all-in-one guitar companion. Real-time chord detection, built-in tuner, and thousands of songs with chords and lyrics.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b1221;
+      --bg-card: rgba(255,255,255,0.03);
+      --accent: #FF7043;
+      --accent-glow: rgba(255,112,67,0.15);
+      --text: #c8d6e5;
+      --text-muted: #6b7d8f;
+      --white: #ffffff;
+      --border: rgba(255,255,255,0.06);
+      --nav-bg: rgba(11,18,33,0.85);
+      --radius: 16px;
+      --max-w: 1120px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      background: var(--nav-bg);
+      border-bottom: 1px solid var(--border);
+      transition: box-shadow 0.3s;
+    }
+
+    nav.scrolled { box-shadow: 0 4px 30px rgba(0,0,0,0.3); }
+
+    .nav-inner {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: var(--white);
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: 1px;
+    }
+
+    .nav-brand svg { width: 36px; height: 36px; }
+
+    .nav-links { display: flex; gap: 32px; align-items: center; }
+
+    .nav-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--white); }
+
+    .nav-cta {
+      background: var(--accent) !important;
+      color: var(--white) !important;
+      padding: 8px 20px;
+      border-radius: 10px;
+      font-weight: 600 !important;
+      transition: opacity 0.2s, transform 0.2s !important;
+    }
+
+    .nav-cta:hover { opacity: 0.9; transform: translateY(-1px); }
+
+    .nav-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: 24px;
+      cursor: pointer;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,112,67,0.08) 0%, transparent 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .logo-hero {
+      width: 160px;
+      height: 160px;
+      margin-bottom: 40px;
+      filter: drop-shadow(0 20px 40px rgba(255,112,67,0.2));
+      animation: float 6s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .hero h1 {
+      font-size: 3.5rem;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: 6px;
+      margin-bottom: 12px;
+    }
+
+    .hero .subtitle {
+      font-size: 1.15rem;
+      color: var(--accent);
+      letter-spacing: 3px;
+      font-weight: 500;
+      margin-bottom: 20px;
+    }
+
+    .hero .tagline {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      max-width: 520px;
+      margin-bottom: 48px;
+      line-height: 1.8;
+    }
+
+    .hero-btns { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 32px;
+      border-radius: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn:hover { transform: translateY(-2px); }
+
+    .btn-primary {
+      background: var(--white);
+      color: var(--bg);
+      box-shadow: 0 4px 20px rgba(255,255,255,0.1);
+    }
+
+    .btn-primary:hover { box-shadow: 0 8px 32px rgba(255,112,67,0.3); }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--white);
+      border: 1.5px solid rgba(255,255,255,0.15);
+    }
+
+    .btn-outline:hover { border-color: var(--accent); box-shadow: 0 4px 20px var(--accent-glow); }
+
+    .btn svg { width: 22px; height: 22px; }
+
+    /* ── SECTION SHARED ── */
+    section { padding: 100px 24px; }
+
+    .section-inner { max-width: var(--max-w); margin: 0 auto; }
+
+    .section-label {
+      display: inline-block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 20px;
+      line-height: 1.2;
+    }
+
+    .section-desc {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      max-width: 560px;
+      line-height: 1.8;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 64px;
+    }
+
+    .section-header .section-desc { margin: 0 auto; }
+
+    /* ── FEATURES ── */
+    #features { background: linear-gradient(180deg, var(--bg), #0e1729, var(--bg)); }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .feature {
+      padding: 36px 28px;
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      transition: border-color 0.3s, transform 0.3s, box-shadow 0.3s;
+    }
+
+    .feature:hover {
+      border-color: rgba(255,112,67,0.3);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+    }
+
+    .feature-icon {
+      width: 52px;
+      height: 52px;
+      background: var(--accent-glow);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .feature-icon svg {
+      width: 26px;
+      height: 26px;
+      stroke: var(--accent);
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+    }
+
+    .feature h3 {
+      font-size: 1.05rem;
+      color: var(--white);
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .feature p {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      line-height: 1.7;
+    }
+
+    /* ── SLOGAN / CTA ── */
+    .cta-section {
+      text-align: center;
+      padding: 120px 24px;
+      position: relative;
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute;
+      width: 500px;
+      height: 300px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,112,67,0.06) 0%, transparent 70%);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .cta-section .slogan {
+      font-size: 2.2rem;
+      font-weight: 300;
+      color: var(--accent);
+      letter-spacing: 2px;
+      margin-bottom: 40px;
+    }
+
+    /* ── LEGAL PAGES ── */
+    .legal {
+      display: none;
+      padding: 120px 24px 80px;
+      min-height: 100vh;
+    }
+
+    .legal.active { display: block; }
+
+    .legal-content {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .legal-content h1 {
+      font-size: 2rem;
+      color: var(--white);
+      margin-bottom: 8px;
+    }
+
+    .legal-content .legal-date {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      margin-bottom: 40px;
+    }
+
+    .legal-content h2 {
+      font-size: 1.2rem;
+      color: var(--white);
+      margin: 32px 0 12px;
+    }
+
+    .legal-content p, .legal-content ul {
+      color: var(--text);
+      margin-bottom: 16px;
+      font-size: 0.95rem;
+    }
+
+    .legal-content ul { padding-left: 24px; }
+    .legal-content li { margin-bottom: 8px; }
+
+    .legal-content a { color: var(--accent); }
+
+    .legal-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+      margin-bottom: 32px;
+      font-size: 0.95rem;
+    }
+
+    .legal-back:hover { text-decoration: underline; }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 48px 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .footer-inner {
+      max-width: var(--max-w);
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .footer-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
+    .footer-brand svg { width: 28px; height: 28px; opacity: 0.5; }
+
+    .footer-links {
+      display: flex;
+      gap: 28px;
+      flex-wrap: wrap;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--accent); }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 2.4rem; letter-spacing: 3px; }
+      .hero .tagline { font-size: 1rem; }
+      .section-title { font-size: 1.8rem; }
+      .logo-hero { width: 120px; height: 120px; }
+      .features-grid { grid-template-columns: 1fr; }
+
+      .nav-links { display: none; }
+      .nav-links.open {
+        display: flex;
+        flex-direction: column;
+        position: absolute;
+        top: 64px;
+        left: 0;
+        right: 0;
+        background: var(--nav-bg);
+        backdrop-filter: blur(20px);
+        padding: 20px 24px;
+        gap: 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .nav-toggle { display: block; }
+      .footer-inner { flex-direction: column; text-align: center; }
+      .footer-links { justify-content: center; }
+    }
+
+    @media (max-width: 480px) {
+      .hero h1 { font-size: 1.8rem; }
+      .hero-btns { flex-direction: column; align-items: center; }
+      .btn { width: 100%; justify-content: center; max-width: 300px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav id="navbar">
+    <div class="nav-inner">
+      <a href="#" class="nav-brand" onclick="showHome(event)">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <rect width="200" height="200" rx="40" fill="#0d1b2a"/>
+          <circle cx="100" cy="100" r="65" fill="none" stroke="#FF7043" stroke-width="3.5"/>
+          <circle cx="100" cy="100" r="48" fill="#0a1420"/>
+          <line x1="75" y1="35" x2="75" y2="165" stroke="#FF7043" stroke-width="0.8" opacity="0.5"/>
+          <line x1="85" y1="35" x2="85" y2="165" stroke="#FF7043" stroke-width="1.0" opacity="0.55"/>
+          <line x1="95" y1="35" x2="95" y2="165" stroke="#FF7043" stroke-width="1.2" opacity="0.6"/>
+          <line x1="105" y1="35" x2="105" y2="165" stroke="#FF7043" stroke-width="1.2" opacity="0.6"/>
+          <line x1="115" y1="35" x2="115" y2="165" stroke="#FF7043" stroke-width="1.0" opacity="0.55"/>
+          <line x1="125" y1="35" x2="125" y2="165" stroke="#FF7043" stroke-width="0.8" opacity="0.5"/>
+          <circle cx="95" cy="103" r="4.5" fill="#FF7043" opacity="0.85"/>
+          <circle cx="105" cy="103" r="4.5" fill="#FF7043" opacity="0.85"/>
+          <circle cx="115" cy="76" r="4.5" fill="#FF7043" opacity="0.85"/>
+        </svg>
+        SIXSTRINGS
+      </a>
+      <div class="nav-links" id="navLinks">
+        <a href="#features" onclick="showHome(event, 'features')">Features</a>
+        <a href="#" onclick="showPage(event, 'privacy')">Privacy</a>
+        <a href="#" onclick="showPage(event, 'terms')">Terms</a>
+        <a href="mailto:support@6strings.app">Support</a>
+        <a href="#" class="nav-cta">Download</a>
+      </div>
+      <button class="nav-toggle" onclick="document.getElementById('navLinks').classList.toggle('open')">&#9776;</button>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <div id="home">
+
+    <!-- HERO -->
+    <section class="hero">
+      <svg class="logo-hero" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0d1b2a"/><stop offset="100%" stop-color="#1b2838"/></linearGradient></defs>
+        <rect width="200" height="200" rx="40" fill="url(#bg)"/>
+        <circle cx="100" cy="100" r="65" fill="none" stroke="#FF7043" stroke-width="3.5"/>
+        <circle cx="100" cy="100" r="56" fill="none" stroke="#FF7043" stroke-width="0.8" opacity="0.3"/>
+        <circle cx="100" cy="100" r="48" fill="#0a1420"/>
+        <line x1="75" y1="35" x2="75" y2="165" stroke="#FF7043" stroke-width="0.8" opacity="0.5"/>
+        <line x1="85" y1="35" x2="85" y2="165" stroke="#FF7043" stroke-width="1.0" opacity="0.55"/>
+        <line x1="95" y1="35" x2="95" y2="165" stroke="#FF7043" stroke-width="1.2" opacity="0.6"/>
+        <line x1="105" y1="35" x2="105" y2="165" stroke="#FF7043" stroke-width="1.2" opacity="0.6"/>
+        <line x1="115" y1="35" x2="115" y2="165" stroke="#FF7043" stroke-width="1.0" opacity="0.55"/>
+        <line x1="125" y1="35" x2="125" y2="165" stroke="#FF7043" stroke-width="0.8" opacity="0.5"/>
+        <line x1="70" y1="82" x2="130" y2="82" stroke="#FF7043" stroke-width="0.6" opacity="0.2"/>
+        <line x1="70" y1="96" x2="130" y2="96" stroke="#FF7043" stroke-width="0.6" opacity="0.2"/>
+        <line x1="70" y1="110" x2="130" y2="110" stroke="#FF7043" stroke-width="0.6" opacity="0.2"/>
+        <line x1="70" y1="124" x2="130" y2="124" stroke="#FF7043" stroke-width="0.6" opacity="0.2"/>
+        <line x1="80" y1="70" x2="129" y2="70" stroke="#FF7043" stroke-width="2.5" opacity="0.6"/>
+        <circle cx="95" cy="103" r="4.5" fill="#FF7043" opacity="0.85"/>
+        <circle cx="105" cy="103" r="4.5" fill="#FF7043" opacity="0.85"/>
+        <circle cx="115" cy="76" r="4.5" fill="#FF7043" opacity="0.85"/>
+        <circle cx="85" cy="59" r="4" fill="none" stroke="#FF7043" stroke-width="1.3" opacity="0.7"/>
+        <circle cx="125" cy="59" r="4" fill="none" stroke="#FF7043" stroke-width="1.3" opacity="0.7"/>
+        <line x1="71" y1="55" x2="79" y2="63" stroke="#FF7043" stroke-width="1.5" opacity="0.7"/>
+        <line x1="79" y1="55" x2="71" y2="63" stroke="#FF7043" stroke-width="1.5" opacity="0.7"/>
+      </svg>
+
+      <h1>SIXSTRINGS</h1>
+      <p class="subtitle">CHORDS &amp; TUNER</p>
+      <p class="tagline">Your all-in-one guitar companion. Tune your guitar, learn any song, and play along with real-time chord detection.</p>
+
+      <div class="hero-btns">
+        <a href="#" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+          Download for iOS
+        </a>
+        <a href="#features" class="btn btn-outline">Explore Features</a>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features">
+      <div class="section-inner">
+        <div class="section-header">
+          <span class="section-label">Features</span>
+          <h2 class="section-title">Everything a guitarist needs</h2>
+          <p class="section-desc">From tuning to playing, SixStrings covers your entire practice session.</p>
+        </div>
+        <div class="features-grid">
+          <div class="feature">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            </div>
+            <h3>Real-Time Chord Detection</h3>
+            <p>Play your guitar and SixStrings listens through your microphone. Using advanced FFT audio analysis, the app detects what chord you're playing in real time and automatically follows your progress through the song. No manual scrolling needed — just play and the app keeps up with you.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+            <h3>Precision Guitar Tuner</h3>
+            <p>Get every string perfectly in tune with our built-in chromatic tuner. A visual gauge shows exactly how many cents sharp or flat you are, with instant color feedback — green when you're spot on, orange when you need adjustment. Supports standard tuning with all 6 string references displayed.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
+            </div>
+            <h3>Song Search &amp; Voice Input</h3>
+            <p>Search thousands of songs by title or artist and instantly get chords with lyrics. Hands busy on the guitar? Use the built-in voice search — tap the mic, say the song name, and start playing. Results load fast with debounced search so you spend less time waiting and more time strumming.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>
+            </div>
+            <h3>Instant Transpose</h3>
+            <p>Playing a song that's too high or too low for your voice? Transpose the entire song up or down with a single tap. Every chord in the song updates instantly — no manual recalculation needed. Supports the full range of semitone shifts so you can find the perfect key for any song.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            </div>
+            <h3>Interactive Chord Diagrams</h3>
+            <p>Don't know a chord shape? SixStrings shows you exactly where to put your fingers with clear fretboard diagrams. Open strings, muted strings, and finger positions are all displayed visually. The diagram updates as you progress through the song, always showing the next chord you need to play.</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </div>
+            <h3>Multilingual Interface</h3>
+            <p>SixStrings speaks your language. The entire interface is available in English, Russian, and Romanian — including all controls, settings, and status messages. Choose your preferred language in settings or let the app follow your device's system language automatically. Voice search adapts to your chosen language too.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-section">
+      <p class="slogan">Six strings. Infinite songs.</p>
+      <a href="#" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+        Get SixStrings Free
+      </a>
+    </section>
+
+  </div><!-- /home -->
+
+  <!-- PRIVACY POLICY -->
+  <div class="legal" id="privacy">
+    <div class="legal-content">
+      <a href="#" class="legal-back" onclick="showHome(event)">&larr; Back to Home</a>
+      <h1>Privacy Policy</h1>
+      <p class="legal-date">Effective date: March 31, 2026</p>
+
+      <h2>1. Information We Collect</h2>
+      <p>SixStrings is designed with privacy in mind. We collect minimal data necessary to provide the app's functionality:</p>
+      <ul>
+        <li><strong>Audio Data:</strong> Microphone input is processed entirely on your device for chord detection and tuning. Audio is never recorded, stored, or transmitted to any server.</li>
+        <li><strong>Search Queries:</strong> When you search for songs, your query is sent to our server to fetch chord and lyric data. We do not log or store search queries.</li>
+        <li><strong>Preferences:</strong> Your app settings (theme, language, favorites) are stored locally on your device.</li>
+      </ul>
+
+      <h2>2. Voice Search</h2>
+      <p>Voice search uses your device's built-in speech recognition (Apple Speech framework). Voice data is processed by Apple according to their privacy policy. We do not receive or store any voice recordings.</p>
+
+      <h2>3. Data Storage</h2>
+      <p>All user data (favorites, recent songs, settings) is stored locally on your device. We do not have user accounts and do not collect personal information.</p>
+
+      <h2>4. Third-Party Services</h2>
+      <p>The app connects to our proxy server to fetch song data from public chord databases. No personal data is transmitted in these requests.</p>
+
+      <h2>5. Children's Privacy</h2>
+      <p>SixStrings does not knowingly collect information from children under 13. The app does not require any personal information to function.</p>
+
+      <h2>6. Changes to This Policy</h2>
+      <p>We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated effective date.</p>
+
+      <h2>7. Contact Us</h2>
+      <p>If you have questions about this Privacy Policy, please contact us at <a href="mailto:support@6strings.app">support@6strings.app</a>.</p>
+    </div>
+  </div>
+
+  <!-- TERMS OF SERVICE -->
+  <div class="legal" id="terms">
+    <div class="legal-content">
+      <a href="#" class="legal-back" onclick="showHome(event)">&larr; Back to Home</a>
+      <h1>Terms of Service</h1>
+      <p class="legal-date">Effective date: March 31, 2026</p>
+
+      <h2>1. Acceptance of Terms</h2>
+      <p>By downloading or using SixStrings ("the App"), you agree to these Terms of Service. If you do not agree, please do not use the App.</p>
+
+      <h2>2. Description of Service</h2>
+      <p>SixStrings is a guitar companion app that provides chord detection, guitar tuning, song search with chords and lyrics, and related musical tools. The App is provided free of charge.</p>
+
+      <h2>3. User Conduct</h2>
+      <p>You agree to use the App only for its intended purpose. You may not:</p>
+      <ul>
+        <li>Reverse engineer, decompile, or disassemble the App</li>
+        <li>Use the App to infringe on intellectual property rights</li>
+        <li>Attempt to interfere with the App's servers or infrastructure</li>
+      </ul>
+
+      <h2>4. Intellectual Property</h2>
+      <p>The App, including its design, logo, and code, is the property of SixStrings. Song lyrics and chords displayed in the App are sourced from public databases and belong to their respective rights holders.</p>
+
+      <h2>5. Disclaimer of Warranties</h2>
+      <p>The App is provided "as is" without warranties of any kind. We do not guarantee the accuracy of chord detection, tuning, or song data. Use the App at your own discretion.</p>
+
+      <h2>6. Limitation of Liability</h2>
+      <p>To the maximum extent permitted by law, SixStrings shall not be liable for any indirect, incidental, or consequential damages arising from the use of the App.</p>
+
+      <h2>7. Changes to Terms</h2>
+      <p>We reserve the right to modify these Terms at any time. Continued use of the App after changes constitutes acceptance of the updated Terms.</p>
+
+      <h2>8. Contact</h2>
+      <p>For questions regarding these Terms, contact us at <a href="mailto:support@6strings.app">support@6strings.app</a>.</p>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+          <rect width="200" height="200" rx="40" fill="#0d1b2a"/>
+          <circle cx="100" cy="100" r="65" fill="none" stroke="#FF7043" stroke-width="3.5"/>
+          <circle cx="100" cy="100" r="48" fill="#0a1420"/>
+          <circle cx="95" cy="103" r="4.5" fill="#FF7043" opacity="0.85"/>
+          <circle cx="105" cy="103" r="4.5" fill="#FF7043" opacity="0.85"/>
+          <circle cx="115" cy="76" r="4.5" fill="#FF7043" opacity="0.85"/>
+        </svg>
+        &copy; 2026 SixStrings. All rights reserved.
+      </div>
+      <div class="footer-links">
+        <a href="#" onclick="showPage(event, 'privacy')">Privacy Policy</a>
+        <a href="#" onclick="showPage(event, 'terms')">Terms of Service</a>
+        <a href="mailto:support@6strings.app">Support</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // Nav scroll effect
+    window.addEventListener('scroll', () => {
+      document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 20);
+    });
+
+    // SPA-like page switching
+    function showHome(e, scrollTo) {
+      if (e) e.preventDefault();
+      document.getElementById('home').style.display = '';
+      document.getElementById('privacy').classList.remove('active');
+      document.getElementById('terms').classList.remove('active');
+      document.getElementById('navLinks').classList.remove('open');
+      if (scrollTo) {
+        setTimeout(() => document.getElementById(scrollTo)?.scrollIntoView({ behavior: 'smooth' }), 50);
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+
+    function showPage(e, page) {
+      if (e) e.preventDefault();
+      document.getElementById('home').style.display = 'none';
+      document.getElementById('privacy').classList.remove('active');
+      document.getElementById('terms').classList.remove('active');
+      document.getElementById(page).classList.add('active');
+      document.getElementById('navLinks').classList.remove('open');
+      window.scrollTo({ top: 0 });
+    }
+  </script>
+
+</body>
+</html>

@@ -1,14 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../l10n/generated/app_localizations.dart';
 import '../config/design_tokens.dart';
 import '../models/search_result.dart';
 import '../models/song.dart';
 import '../providers/audio_provider.dart';
 import '../providers/favorites_provider.dart';
 import '../providers/song_provider.dart';
+import '../providers/song_settings_provider.dart';
 import '../utils/chord_utils.dart';
-import '../widgets/chord_detector_overlay.dart';
+import '../widgets/chord_diagram.dart';
 import '../widgets/chord_line.dart';
 import '../widgets/section_header.dart';
 import '../widgets/tuner_bottom_sheet.dart';
@@ -54,6 +56,12 @@ class _SongScreenState extends ConsumerState<SongScreen> {
   Timer? _cooldownTimer;
   String _lastSongId = '';
 
+  // Local session state — initialized from defaults, not persisted
+  bool _autoScroll = true;
+  bool _showDetectedChord = true;
+  bool _showChordDiagram = false;
+  bool _defaultsLoaded = false;
+
   static const _noteNames = [
     'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'
   ];
@@ -69,15 +77,6 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     super.dispose();
   }
 
-  void _showTuner(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const TunerBottomSheet(),
-    );
-  }
-
   String _lineKeyId(int s, int l) => '$s:$l';
 
   int _noteToIndex(String note) {
@@ -90,10 +89,9 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     return idx >= 0 ? idx : 0;
   }
 
-  /// Rebuild chord sequence from the TRANSPOSED song (what user sees on screen).
   void _rebuildChordSequence(Song song, int transpose) {
     final key = '${song.id}_$transpose';
-    if (_lastSongId == key) return; // already built for this version
+    if (_lastSongId == key) return;
     _lastSongId = key;
 
     final seq = <_ChordPosition>[];
@@ -102,10 +100,7 @@ class _SongScreenState extends ConsumerState<SongScreen> {
         final chords = song.sections[s].lines[l].chords;
         for (int c = 0; c < chords.length; c++) {
           seq.add(_ChordPosition(
-            section: s,
-            line: l,
-            chord: c,
-            root: chords[c].root,
+            section: s, line: l, chord: c, root: chords[c].root,
           ));
         }
       }
@@ -132,11 +127,9 @@ class _SongScreenState extends ConsumerState<SongScreen> {
         _canAdvance = true;
       });
 
-      setState(() {
-        _currentChordIndex++;
-      });
+      setState(() => _currentChordIndex++);
 
-      if (_currentChordIndex < _chordSequence.length) {
+      if (_autoScroll && _currentChordIndex < _chordSequence.length) {
         final next = _chordSequence[_currentChordIndex];
         _scrollToLine(next.section, next.line);
       }
@@ -168,19 +161,28 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     }
   }
 
-  (int section, int line)? get _activeLine {
-    if (_chordSequence.isEmpty || _currentChordIndex >= _chordSequence.length) {
-      return null;
+  String? _currentSongChordDisplay(Song song) {
+    if (_chordSequence.isEmpty || _currentChordIndex >= _chordSequence.length) return null;
+    final pos = _chordSequence[_currentChordIndex];
+    if (pos.section < song.sections.length) {
+      final section = song.sections[pos.section];
+      if (pos.line < section.lines.length) {
+        final line = section.lines[pos.line];
+        if (pos.chord < line.chords.length) return line.chords[pos.chord].display;
+      }
     }
+    return null;
+  }
+
+  (int section, int line)? get _activeLine {
+    if (_chordSequence.isEmpty || _currentChordIndex >= _chordSequence.length) return null;
     final pos = _chordSequence[_currentChordIndex];
     return (pos.section, pos.line);
   }
 
-  ({Set<String> current, Set<String> next}) _getLineHighlights(
-      int sectionIdx, int lineIdx) {
+  ({Set<String> current, Set<String> next}) _getLineHighlights(int sectionIdx, int lineIdx) {
     final currentSet = <String>{};
     final nextSet = <String>{};
-
     if (_chordSequence.isEmpty) return (current: currentSet, next: nextSet);
 
     final curIdx = _currentChordIndex > 0 ? _currentChordIndex - 1 : -1;
@@ -190,14 +192,12 @@ class _SongScreenState extends ConsumerState<SongScreen> {
         currentSet.add('$sectionIdx:$lineIdx:${pos.chord}');
       }
     }
-
     if (_currentChordIndex < _chordSequence.length) {
       final pos = _chordSequence[_currentChordIndex];
       if (pos.section == sectionIdx && pos.line == lineIdx) {
         nextSet.add('$sectionIdx:$lineIdx:${pos.chord}');
       }
     }
-
     return (current: currentSet, next: nextSet);
   }
 
@@ -206,19 +206,26 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     final songAsync = ref.watch(transposedSongProvider(widget.songUrl));
     final transpose = ref.watch(transposeProvider);
     final audioState = ref.watch(audioProvider);
+    final defaults = ref.watch(songSettingsProvider);
     final theme = Theme.of(context);
+
+    // Load defaults once when opening a song
+    if (!_defaultsLoaded) {
+      _autoScroll = defaults.autoScrollEnabled;
+      _showDetectedChord = defaults.showDetectedChord;
+      _showChordDiagram = defaults.showChordDiagram;
+      _defaultsLoaded = true;
+    }
 
     final displayTitle = songAsync.value?.title ?? widget.title;
     final displayArtist = songAsync.value?.artist ?? widget.artist;
     final songId = songAsync.value?.id ?? '';
+    final currentChord = songAsync.value != null ? _currentSongChordDisplay(songAsync.value!) : null;
 
-    // Rebuild chord sequence from transposed song (updates on transpose too)
     if (songAsync.value != null) {
       _rebuildChordSequence(songAsync.value!, transpose);
     }
 
-    // Listen for audio note changes — ref.listen in build is the standard Riverpod pattern
-    // Its callback fires AFTER build completes, so setState is safe here
     ref.listen<AudioState>(audioProvider, (prev, next) {
       if (!mounted) return;
       if (next.isListening && next.detectedNote.isNotEmpty) {
@@ -232,11 +239,9 @@ class _SongScreenState extends ConsumerState<SongScreen> {
       appBar: AppBar(
         title: Column(
           children: [
-            Text(displayTitle,
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+            Text(displayTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             if (displayArtist.isNotEmpty)
-              Text(displayArtist,
-                  style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
+              Text(displayArtist, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
           ],
         ),
         actions: [
@@ -246,7 +251,7 @@ class _SongScreenState extends ConsumerState<SongScreen> {
               final isFav = favs.any((f) => f.id == songId);
               return IconButton(
                 icon: Icon(isFav ? Icons.favorite : Icons.favorite_border,
-                    color: isFav ? Colors.red : null),
+                    color: isFav ? Colors.red : null, size: 20),
                 onPressed: () {
                   final song = songAsync.value!;
                   ref.read(favoritesProvider.notifier).toggle(SearchResult(
@@ -267,7 +272,7 @@ class _SongScreenState extends ConsumerState<SongScreen> {
                 children: [
                   Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
                   const SizedBox(height: DesignTokens.spacingSm),
-                  Text('Failed to load song',
+                  Text(AppLocalizations.of(context)!.failedToLoadSong,
                       style: TextStyle(fontSize: 16, color: theme.colorScheme.error)),
                   const SizedBox(height: DesignTokens.spacingXs),
                   Text('$error', textAlign: TextAlign.center,
@@ -275,7 +280,7 @@ class _SongScreenState extends ConsumerState<SongScreen> {
                   const SizedBox(height: DesignTokens.spacingMd),
                   FilledButton.icon(
                     onPressed: () => ref.invalidate(currentSongProvider(widget.songUrl)),
-                    icon: const Icon(Icons.refresh), label: const Text('Retry'),
+                    icon: const Icon(Icons.refresh), label: Text(AppLocalizations.of(context)!.retry),
                   ),
                 ],
               ),
@@ -285,27 +290,49 @@ class _SongScreenState extends ConsumerState<SongScreen> {
             children: [
               Column(
                 children: [
-                  _buildToolbar(theme, transpose),
+                  _buildToolbar(theme, transpose, audioState),
                   Expanded(child: _buildSongContent(value, audioState)),
                 ],
               ),
-              Positioned(
-                bottom: 0, right: 0,
-                child: ChordDetectorOverlay(
-                  detectedChord: audioState.detectedChord,
-                  detectedNote: audioState.detectedNote,
-                  isListening: audioState.isListening,
-                  error: audioState.error,
-                  onToggle: () {
-                    ref.read(audioProvider.notifier).toggle();
-                    setState(() {
-                      _currentChordIndex = 0;
-                      _canAdvance = true;
-                    });
-                    _cooldownTimer?.cancel();
-                  },
+              // Detected chord badge — bottom right
+              if (_showDetectedChord && audioState.isListening && audioState.detectedChord.isNotEmpty)
+                Positioned(
+                  bottom: 16, right: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2))],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.music_note, color: theme.colorScheme.onPrimaryContainer, size: 20),
+                        const SizedBox(width: 6),
+                        Text(audioState.detectedChord, style: TextStyle(
+                          fontSize: 24, fontWeight: FontWeight.bold, fontFamily: 'monospace',
+                          color: theme.colorScheme.onPrimaryContainer,
+                        )),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              // Chord diagram — bottom right, above detected chord
+              if (_showChordDiagram && currentChord != null && currentChord.isNotEmpty)
+                Positioned(
+                  bottom: _showDetectedChord && audioState.isListening && audioState.detectedChord.isNotEmpty ? 72 : 16,
+                  right: 16,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 12, offset: const Offset(0, 4))],
+                    ),
+                    child: ChordDiagram(chordName: currentChord, size: 140),
+                  ),
+                ),
             ],
           ),
         _ => const Center(child: CircularProgressIndicator()),
@@ -314,7 +341,7 @@ class _SongScreenState extends ConsumerState<SongScreen> {
   }
 
   Widget _buildSongContent(Song song, AudioState audioState) {
-    final active = audioState.isListening ? _activeLine : null;
+    final active = audioState.isListening && _autoScroll ? _activeLine : null;
 
     return ListView.builder(
       controller: _scrollController,
@@ -344,10 +371,8 @@ class _SongScreenState extends ConsumerState<SongScreen> {
               return KeyedSubtree(
                 key: _lineKeys[keyId],
                 child: ChordLineWidget(
-                  line: line,
-                  fontSize: _fontSize,
-                  sectionIndex: sectionIndex,
-                  lineIndex: lineIndex,
+                  line: line, fontSize: _fontSize,
+                  sectionIndex: sectionIndex, lineIndex: lineIndex,
                   currentChordKeys: highlights.current,
                   nextChordKeys: highlights.next,
                   isActiveLine: isActiveLine,
@@ -362,7 +387,9 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     );
   }
 
-  Widget _buildToolbar(ThemeData theme, int transpose) {
+  Widget _buildToolbar(ThemeData theme, int transpose, AudioState audioState) {
+    final l10n = AppLocalizations.of(context)!;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: DesignTokens.spacingSm, vertical: DesignTokens.spacingXs,
@@ -373,18 +400,19 @@ class _SongScreenState extends ConsumerState<SongScreen> {
       ),
       child: Row(
         children: [
+          // Transpose
           IconButton(
             onPressed: () => ref.read(transposeProvider.notifier).decrement(),
             icon: const Icon(Icons.remove, size: 18),
-            tooltip: 'Transpose down', visualDensity: VisualDensity.compact,
+            tooltip: l10n.transposeDown, visualDensity: VisualDensity.compact,
           ),
           Container(
-            constraints: const BoxConstraints(minWidth: 36),
+            constraints: const BoxConstraints(minWidth: 28),
             alignment: Alignment.center,
             child: Text(
               ChordUtils.formatTranspose(transpose),
               style: TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 14, fontFamily: 'monospace',
+                fontWeight: FontWeight.bold, fontSize: 13, fontFamily: 'monospace',
                 color: transpose != 0 ? theme.colorScheme.primary : theme.colorScheme.onSurface,
               ),
             ),
@@ -392,34 +420,66 @@ class _SongScreenState extends ConsumerState<SongScreen> {
           IconButton(
             onPressed: () => ref.read(transposeProvider.notifier).increment(),
             icon: const Icon(Icons.add, size: 18),
-            tooltip: 'Transpose up', visualDensity: VisualDensity.compact,
+            tooltip: l10n.transposeUp, visualDensity: VisualDensity.compact,
           ),
           if (transpose != 0)
             TextButton(
               onPressed: () => ref.read(transposeProvider.notifier).reset(),
               style: TextButton.styleFrom(
                   visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 8)),
-              child: const Text('Reset', style: TextStyle(fontSize: 12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 4)),
+              child: Text(l10n.reset, style: const TextStyle(fontSize: 11)),
             ),
           const Spacer(),
+          // Tuner
           IconButton(
-            onPressed: () => _showTuner(context),
+            onPressed: () => showModalBottomSheet(
+              context: context, isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => const TunerBottomSheet(),
+            ),
             icon: const Icon(Icons.tune, size: 18),
-            tooltip: 'Tuner', visualDensity: VisualDensity.compact,
+            tooltip: l10n.tuner, visualDensity: VisualDensity.compact,
           ),
-          const SizedBox(width: 4),
+          // Chord diagram
+          IconButton(
+            onPressed: () => setState(() => _showChordDiagram = !_showChordDiagram),
+            icon: Icon(Icons.grid_on, size: 18,
+              color: _showChordDiagram ? theme.colorScheme.primary : null),
+            tooltip: l10n.chordDiagram, visualDensity: VisualDensity.compact,
+          ),
+          // Detected chord
+          IconButton(
+            onPressed: () => setState(() => _showDetectedChord = !_showDetectedChord),
+            icon: Icon(Icons.music_note, size: 18,
+              color: _showDetectedChord ? theme.colorScheme.primary : null),
+            tooltip: l10n.detectedChord, visualDensity: VisualDensity.compact,
+          ),
+          // Mic
+          IconButton(
+            onPressed: () {
+              ref.read(audioProvider.notifier).toggle();
+              setState(() { _currentChordIndex = 0; _canAdvance = true; });
+              _cooldownTimer?.cancel();
+            },
+            icon: Icon(
+              audioState.isListening ? Icons.mic : Icons.mic_none, size: 18,
+              color: audioState.isListening ? theme.colorScheme.error : null),
+            tooltip: audioState.isListening ? l10n.stop : l10n.listen,
+            visualDensity: VisualDensity.compact,
+          ),
+          // Font size
           IconButton(
             onPressed: _fontSize > 12 ? () => setState(() => _fontSize -= 2) : null,
             icon: const Icon(Icons.text_decrease, size: 18),
-            tooltip: 'Smaller text', visualDensity: VisualDensity.compact,
+            tooltip: l10n.smallerText, visualDensity: VisualDensity.compact,
           ),
           Text('${_fontSize.toInt()}',
-              style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurfaceVariant)),
+              style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurfaceVariant)),
           IconButton(
             onPressed: _fontSize < 24 ? () => setState(() => _fontSize += 2) : null,
             icon: const Icon(Icons.text_increase, size: 18),
-            tooltip: 'Larger text', visualDensity: VisualDensity.compact,
+            tooltip: l10n.largerText, visualDensity: VisualDensity.compact,
           ),
         ],
       ),

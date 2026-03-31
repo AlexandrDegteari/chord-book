@@ -3,6 +3,7 @@ import 'dart:developer' as dev;
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../l10n/generated/app_localizations.dart';
 import 'package:pitch_detector_dart/pitch_detector.dart';
 import 'package:record/record.dart';
 
@@ -154,7 +155,7 @@ class _TunerBottomSheetState extends State<TunerBottomSheet> {
           ),
           Padding(
             padding: const EdgeInsets.all(12),
-            child: Text('Tuner', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+            child: Text(AppLocalizations.of(context)!.tuner, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
           ),
           // Gauge
           SizedBox(
@@ -182,7 +183,7 @@ class _TunerBottomSheetState extends State<TunerBottomSheet> {
           ),
           const SizedBox(height: 8),
           if (_isListening && _note != '--')
-            Text(_inTune ? 'In Tune' : _cents > 0 ? 'Too high' : 'Too low',
+            Text(_inTune ? AppLocalizations.of(context)!.inTune : _cents > 0 ? AppLocalizations.of(context)!.tooHigh : AppLocalizations.of(context)!.tooLow,
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: tuneColor)),
           const Spacer(),
           // Strings

@@ -1,4 +1,4 @@
-# chordbook
+# Sixstrings
 
 A new Flutter project.
 

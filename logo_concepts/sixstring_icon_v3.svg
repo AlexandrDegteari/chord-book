@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Sixstring Icon V3: Elegant - tuning fork, chord dots, gold on black -->
+  <defs>
+    <linearGradient id="bg3i" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#18181b"/>
+      <stop offset="100%" stop-color="#09090b"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FBBF24"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="200" height="200" rx="40" fill="url(#bg3i)"/>
+
+  <!-- Triple rosette rings -->
+  <circle cx="100" cy="100" r="62" fill="none" stroke="#FBBF24" stroke-width="2.5"/>
+  <circle cx="100" cy="100" r="66" fill="none" stroke="#FBBF24" stroke-width="0.5" opacity="0.3"/>
+  <circle cx="100" cy="100" r="69" fill="none" stroke="#FBBF24" stroke-width="0.3" opacity="0.15"/>
+
+  <!-- Sound hole -->
+  <circle cx="100" cy="100" r="52" fill="#0c0c0e"/>
+
+  <!-- 6 strings -->
+  <line x1="82" y1="40" x2="82" y2="160" stroke="#FBBF24" stroke-width="0.5" opacity="0.35"/>
+  <line x1="89" y1="36" x2="89" y2="164" stroke="#FBBF24" stroke-width="0.7" opacity="0.4"/>
+  <line x1="96" y1="34" x2="96" y2="166" stroke="#FBBF24" stroke-width="0.9" opacity="0.45"/>
+  <line x1="104" y1="34" x2="104" y2="166" stroke="#FBBF24" stroke-width="0.9" opacity="0.45"/>
+  <line x1="111" y1="36" x2="111" y2="164" stroke="#FBBF24" stroke-width="0.7" opacity="0.4"/>
+  <line x1="118" y1="40" x2="118" y2="160" stroke="#FBBF24" stroke-width="0.5" opacity="0.35"/>
+
+  <!-- Bridge line -->
+  <line x1="75" y1="122" x2="125" y2="122" stroke="#FBBF24" stroke-width="1.8" opacity="0.5"/>
+
+  <!-- Tuning fork on top -->
+  <line x1="100" y1="16" x2="100" y2="34" stroke="#FBBF24" stroke-width="2" opacity="0.75"/>
+  <path d="M93 16 Q93 6 100 2 Q107 6 107 16" fill="none" stroke="#FBBF24" stroke-width="2" opacity="0.75"/>
+
+  <!-- Vibration lines -->
+  <path d="M88 9 Q86 12 88 15" fill="none" stroke="#FBBF24" stroke-width="0.8" opacity="0.3"/>
+  <path d="M112 9 Q114 12 112 15" fill="none" stroke="#FBBF24" stroke-width="0.8" opacity="0.3"/>
+
+  <!-- Chord finger dots (G chord shape) -->
+  <circle cx="89" cy="80" r="3.5" fill="#FBBF24" opacity="0.8"/>
+  <circle cx="96" cy="92" r="3.5" fill="#FBBF24" opacity="0.8"/>
+  <circle cx="104" cy="92" r="3.5" fill="#FBBF24" opacity="0.8"/>
+  <circle cx="118" cy="80" r="3.5" fill="#FBBF24" opacity="0.8"/>
+
+  <!-- Open string indicators -->
+  <circle cx="82" cy="66" r="3" fill="none" stroke="#FBBF24" stroke-width="1.2" opacity="0.55"/>
+  <circle cx="111" cy="66" r="3" fill="none" stroke="#FBBF24" stroke-width="1.2" opacity="0.55"/>
+</svg>

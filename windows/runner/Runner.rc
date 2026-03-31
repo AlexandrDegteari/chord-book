@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.chordbook" "\0"
-            VALUE "FileDescription", "chordbook" "\0"
+            VALUE "CompanyName", "com.sixstrings" "\0"
+            VALUE "FileDescription", "Sixstrings" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "chordbook" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.chordbook. All rights reserved." "\0"
-            VALUE "OriginalFilename", "chordbook.exe" "\0"
-            VALUE "ProductName", "chordbook" "\0"
+            VALUE "InternalName", "sixstrings" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.sixstrings. All rights reserved." "\0"
+            VALUE "OriginalFilename", "sixstrings.exe" "\0"
+            VALUE "ProductName", "Sixstrings" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

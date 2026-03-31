@@ -1,0 +1,64 @@
+{
+  "@@locale": "en",
+  "appTitle": "Sixstrings",
+  "searchSongs": "Search songs...",
+  "connectionError": "Connection error",
+  "proxyServerError": "Make sure the proxy server is running\n{error}",
+  "@proxyServerError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "noResultsFound": "No results found",
+  "searchToGetStarted": "Search for songs to get started",
+  "favorites": "Favorites",
+  "recent": "Recent",
+  "settings": "Settings",
+  "appearance": "Appearance",
+  "systemTheme": "System",
+  "lightTheme": "Light",
+  "darkTheme": "Dark",
+  "songScreenDefaults": "Song Screen Defaults",
+  "autoScroll": "Auto-scroll",
+  "autoScrollSubtitle": "Scroll to current chord automatically",
+  "detectedChord": "Detected chord",
+  "showDetectedChordBadge": "Show detected chord badge",
+  "chordDiagram": "Chord diagram",
+  "showFingeringDiagram": "Show fingering diagram",
+  "about": "About",
+  "versionInfo": "Version {version}",
+  "@versionInfo": {
+    "placeholders": {
+      "version": {"type": "String"}
+    }
+  },
+  "failedToLoadSong": "Failed to load song",
+  "retry": "Retry",
+  "transposeDown": "Transpose down",
+  "transposeUp": "Transpose up",
+  "reset": "Reset",
+  "tuner": "Tuner",
+  "stop": "Stop",
+  "listen": "Listen",
+  "smallerText": "Smaller text",
+  "largerText": "Larger text",
+  "micPermissionRequired": "Microphone permission required",
+  "playANote": "Play a note...",
+  "inTune": "In Tune",
+  "tooHigh": "Too high",
+  "tooLow": "Too low",
+  "book": "Book",
+  "listening": "Listening...",
+  "micPermissionDenied": "Microphone permission denied",
+  "language": "Language",
+  "systemLanguage": "System",
+  "english": "English",
+  "russian": "Russian",
+  "romanian": "Romanian",
+  "failed": "Failed: {error}",
+  "@failed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  }
+}

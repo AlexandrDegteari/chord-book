@@ -3,6 +3,7 @@ import 'dart:developer' as dev;
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../l10n/generated/app_localizations.dart';
 import 'package:pitch_detector_dart/pitch_detector.dart';
 import 'package:record/record.dart';
 
@@ -71,7 +72,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
   Future<void> _startListening() async {
     final hasPermission = await _recorder.hasPermission();
     if (!hasPermission) {
-      if (mounted) setState(() => _error = 'Microphone permission required');
+      if (mounted) setState(() => _error = 'mic_permission_required');
       return;
     }
 
@@ -95,7 +96,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
       }
     } catch (e) {
       dev.log('[Tuner] Failed: $e');
-      if (mounted) setState(() => _error = 'Failed: $e');
+      if (mounted) setState(() => _error = 'failed:$e');
     }
   }
 
@@ -184,23 +185,31 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Tuner')),
+      appBar: AppBar(title: Text(l10n.tuner)),
       body: SafeArea(
         child: Column(
           children: [
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+                child: Text(
+                  _error == 'mic_permission_required'
+                      ? l10n.micPermissionRequired
+                      : _error!.startsWith('failed:')
+                          ? l10n.failed(_error!.substring(7))
+                          : _error!,
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
               ),
             Expanded(child: _buildGauge(theme)),
             _buildGuitarStrings(theme),
             Padding(
               padding: const EdgeInsets.only(bottom: 24, top: 8),
               child: Text(
-                _frequency > 0 ? '${_frequency.toStringAsFixed(1)} Hz' : 'Play a note...',
+                _frequency > 0 ? '${_frequency.toStringAsFixed(1)} Hz' : l10n.playANote,
                 style: TextStyle(
                   fontSize: 14,
                   color: theme.colorScheme.onSurfaceVariant,
@@ -215,6 +224,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
   }
 
   Widget _buildGauge(ThemeData theme) {
+    final l10n = AppLocalizations.of(context)!;
     final tuneColor = _inTune ? Colors.green : Colors.orange;
     final isDark = theme.brightness == Brightness.dark;
 
@@ -261,7 +271,7 @@ class _TunerScreenState extends State<TunerScreen> with WidgetsBindingObserver {
           const SizedBox(height: 12),
           if (_isListening && _note != '--')
             Text(
-              _inTune ? 'In Tune' : _cents > 0 ? 'Too high' : 'Too low',
+              _inTune ? l10n.inTune : _cents > 0 ? l10n.tooHigh : l10n.tooLow,
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: tuneColor),
             ),
         ],

@@ -1,6 +1,6 @@
 class AppConfig {
-  static const String apiBaseUrl = 'http://46.225.124.82:3100/api';
-  static const String appName = 'ChordBook';
+  static const String apiBaseUrl = 'https://api.6strings.app/api';
+  static const String appName = 'Sixstrings';
 
   // Audio
   static const int sampleRate = 44100;
