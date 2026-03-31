@@ -13,6 +13,7 @@ import '../utils/chord_utils.dart';
 import '../widgets/chord_diagram.dart';
 import '../widgets/chord_line.dart';
 import '../widgets/section_header.dart';
+import '../widgets/metronome_bottom_sheet.dart';
 import '../widgets/tuner_bottom_sheet.dart';
 
 class _ChordPosition {
@@ -440,6 +441,16 @@ class _SongScreenState extends ConsumerState<SongScreen> {
             ),
             icon: const Icon(Icons.tune, size: 18),
             tooltip: l10n.tuner, visualDensity: VisualDensity.compact,
+          ),
+          // Metronome
+          IconButton(
+            onPressed: () => showModalBottomSheet(
+              context: context, isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => const MetronomeBottomSheet(),
+            ),
+            icon: const Icon(Icons.timer, size: 18),
+            tooltip: l10n.metronome, visualDensity: VisualDensity.compact,
           ),
           // Chord diagram
           IconButton(

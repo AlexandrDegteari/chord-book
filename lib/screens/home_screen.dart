@@ -57,7 +57,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.appTitle),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset('assets/images/logo.png', height: 32),
+            ),
+            const SizedBox(width: 8),
+            Text(l10n.appTitle),
+          ],
+        ),
         actions: [
           IconButton(
             icon: _themeIcon(ref.watch(themeProvider)),
