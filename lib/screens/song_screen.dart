@@ -79,19 +79,29 @@ class _SongScreenState extends ConsumerState<SongScreen> {
   @override
   void initState() {
     super.initState();
-  }
-
-  @override
-  void deactivate() {
-    ref.read(transposeProvider.notifier).reset();
-    ref.read(audioProvider.notifier).stopListening();
-    super.deactivate();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.listen<AudioState>(audioProvider, (prev, next) {
+        if (!mounted) return;
+        if (next.isListening && next.detectedNote.isNotEmpty) {
+          // Schedule outside of provider notification to avoid modify-during-build
+          Future.microtask(() {
+            if (mounted) _onRawAudioForChordMatch(next);
+          });
+        }
+      });
+    });
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
     _cooldownTimer?.cancel();
+    _scrollController.dispose();
+    // Defer provider modifications to avoid modify-during-build
+    Future.microtask(() {
+      ref.read(transposeProvider.notifier).reset();
+      ref.read(audioProvider.notifier).stopListening();
+    });
     super.dispose();
   }
 
@@ -258,13 +268,6 @@ class _SongScreenState extends ConsumerState<SongScreen> {
     // Build chord sequence when song loads
     if (songAsync.value != null && _chordSequence.isEmpty) {
       _buildChordSequence(songAsync.value!);
-    }
-
-    // Match detected note against expected chord
-    if (audioState.isListening && audioState.detectedNote.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _onRawAudioForChordMatch(audioState);
-      });
     }
 
     return Scaffold(

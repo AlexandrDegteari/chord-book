@@ -1,3 +1,4 @@
+import { OnModuleDestroy } from '@nestjs/common';
 export interface SearchResult {
     id: string;
     title: string;
@@ -25,16 +26,16 @@ export interface Song {
     url: string;
     sections: SongSection[];
 }
-export declare class ScraperService {
+export declare class ScraperService implements OnModuleDestroy {
     private readonly baseUrl;
     private readonly headers;
     private readonly chordRegex;
+    private browser;
+    private getBrowser;
+    onModuleDestroy(): Promise<void>;
     search(query: string): Promise<SearchResult[]>;
     private getArtistSongs;
     getSong(id: string): Promise<Song>;
     getSongByUrl(url: string): Promise<Song>;
-    private parseSongPage;
-    private parsePline;
     private parseChordSymbol;
-    private parsePreformatted;
 }

@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import axios from 'axios';
 import { load } from 'cheerio';
+import * as puppeteer from 'puppeteer';
 
 export interface SearchResult {
   id: string;
@@ -35,7 +36,7 @@ export interface Song {
 }
 
 @Injectable()
-export class ScraperService {
+export class ScraperService implements OnModuleDestroy {
   private readonly baseUrl = 'https://mychords.net';
   private readonly headers = {
     'User-Agent':
@@ -44,10 +45,28 @@ export class ScraperService {
   };
 
   private readonly chordRegex =
-    /^([A-G][#b]?)(m(?:aj)?|dim|aug|sus[24]?|add)?(\d+)?(\/([A-G][#b]?))?$/;
+    /^([A-GH][#b]?)(m(?:aj)?|dim|aug|sus[24]?|add)?(\d+)?(\/([A-GH][#b]?))?$/;
+
+  private browser: puppeteer.Browser | null = null;
+
+  private async getBrowser(): Promise<puppeteer.Browser> {
+    if (!this.browser || !this.browser.connected) {
+      this.browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+    }
+    return this.browser;
+  }
+
+  async onModuleDestroy() {
+    if (this.browser) {
+      await this.browser.close();
+      this.browser = null;
+    }
+  }
 
   async search(query: string): Promise<SearchResult[]> {
-    // Use the AJAX autocomplete API which returns JSON
     const { data } = await axios.get(
       `${this.baseUrl}/en/ajax/autocomplete`,
       {
@@ -67,11 +86,9 @@ export class ScraperService {
         const group = suggestion.data?.group || '';
         const value = suggestion.value || '';
 
-        // Extract ID from URL like /en/artist/12345-song-name.html
         const idMatch = url.match(/\/(\d+)-/);
 
         if (group === 'Songs' && idMatch) {
-          // Split "Artist - Song" format
           const parts = value.split(' - ');
           const artist = parts.length > 1 ? parts[0].trim() : '';
           const title =
@@ -84,7 +101,6 @@ export class ScraperService {
             url: url.startsWith('http') ? url : `${this.baseUrl}${url}`,
           });
         } else if (group === 'Artists') {
-          // Fetch artist page to get songs list
           const artistUrl = url.startsWith('http')
             ? url
             : `${this.baseUrl}${url}`;
@@ -112,7 +128,6 @@ export class ScraperService {
     const $ = load(data);
     const results: SearchResult[] = [];
 
-    // Use the specific listing selector for artist song pages
     $('.b-listing__item__link').each((_, el) => {
       const href = $(el).attr('href') || '';
       const idMatch = href.match(/\/(\d+)-/);
@@ -120,7 +135,6 @@ export class ScraperService {
       if (idMatch && href.endsWith('.html')) {
         const text = $(el).text().trim();
         if (text) {
-          // Clean up: remove artist prefix and "(N versions)" suffix
           const title = text
             .replace(new RegExp(`^${artistName}\\s*-\\s*`, 'i'), '')
             .replace(/\s*\(\d+\s*versions?\)\s*/gi, '')
@@ -143,7 +157,6 @@ export class ScraperService {
   }
 
   async getSong(id: string): Promise<Song> {
-    // Search for the song URL via autocomplete
     const { data: searchData } = await axios.get(
       `${this.baseUrl}/en/ajax/autocomplete`,
       {
@@ -167,9 +180,7 @@ export class ScraperService {
       }
     }
 
-    // If not found via autocomplete, try constructing URL patterns
     if (!songUrl) {
-      // Try fetching the main page to find the link
       const { data: mainData } = await axios.get(this.baseUrl, {
         headers: this.headers,
       });
@@ -186,216 +197,174 @@ export class ScraperService {
       throw new Error(`Song with id ${id} not found`);
     }
 
-    const { data: songData } = await axios.get(songUrl, {
-      headers: this.headers,
-    });
-
-    return this.parseSongPage(songData, id, songUrl);
+    return this.getSongByUrl(songUrl);
   }
 
   async getSongByUrl(url: string): Promise<Song> {
     const fullUrl = url.startsWith('http') ? url : `${this.baseUrl}${url}`;
-    const { data } = await axios.get(fullUrl, { headers: this.headers });
 
     const idMatch = url.match(/\/(\d+)-/);
     const id = idMatch ? idMatch[1] : '0';
 
-    return this.parseSongPage(data, id, fullUrl);
-  }
+    // Use Puppeteer to render JS-decoded chords
+    const browser = await this.getBrowser();
+    const page = await browser.newPage();
 
-  private parseSongPage(html: string, id: string, url: string): Song {
-    const $ = load(html);
+    try {
+      await page.setUserAgent(this.headers['User-Agent']);
+      await page.goto(fullUrl, { waitUntil: 'networkidle2', timeout: 15000 });
 
-    // Extract title and artist from page
-    const pageTitle = $('h1').first().text().trim();
-    const parts = pageTitle.split(' - ');
-    const artist = parts.length > 1 ? parts[0].trim() : '';
-    const title =
-      parts.length > 1 ? parts.slice(1).join(' - ').trim() : pageTitle;
+      // Wait for JS to decode chords
+      await page.waitForSelector('.b-accord__symbol', { timeout: 5000 }).catch(() => {});
+      await new Promise((r) => setTimeout(r, 1500));
 
-    // Parse chord content
-    const sections: SongSection[] = [];
-    let currentSection: SongSection = { label: '', lines: [] };
+      // Extract title and artist
+      const pageTitle = await page.$eval('h1', (el) => el.textContent?.trim() || '');
+      const parts = pageTitle.split(' - ');
+      const artist = parts.length > 1 ? parts[0].trim() : '';
+      const title = parts.length > 1 ? parts.slice(1).join(' - ').trim() : pageTitle;
 
-    const $content = $('.w-words__text');
-    if ($content.length === 0) {
-      // Fallback: try other selectors
-      const $alt = $('pre, .chord-text, .song-text');
-      if ($alt.length > 0) {
-        currentSection.lines = this.parsePreformatted($alt.text());
-        sections.push(currentSection);
-        return { id, title, artist, url, sections };
-      }
-    }
+      // Extract all content from rendered DOM
+      const rawData = await page.evaluate(() => {
+        const content = document.querySelector('.w-words__text');
+        if (!content) return [];
 
-    $content.children().each((_, el) => {
-      const $el = $(el);
-      const classes = $el.attr('class') || '';
-      const text = $el.text().trim();
+        const elements: Array<{
+          type: string;
+          classes: string;
+          text: string;
+          chords: string[];
+          lyrics: string;
+        }> = [];
 
-      // Check if this element contains a section header
-      const $sectionHeader = $el.find('.b-lr-section');
-      if (
-        classes.includes('b-lr-section') ||
-        $sectionHeader.length > 0
-      ) {
-        if (currentSection.lines.length > 0) {
-          sections.push(currentSection);
-        }
-        const label =
-          $sectionHeader.length > 0 ? $sectionHeader.text().trim() : text;
-        currentSection = { label, lines: [] };
-        // If the element also contains lyrics (e.g. "Припев: guitar part"), add as line
-        const remainingText = text.replace(label, '').trim();
-        if (remainingText) {
-          currentSection.lines.push({ chords: [], lyrics: text });
-        }
-        return;
-      }
+        content.querySelectorAll(':scope > *').forEach((el) => {
+          const classes = el.className || '';
+          const text = el.textContent?.trim() || '';
 
-      // Chord+lyrics line (pline with c-subline)
-      if (classes.includes('pline')) {
-        const line = this.parsePline($, $el);
-        currentSection.lines.push(line);
-        return;
-      }
-
-      // Plain lyrics line or single-line with potential chords
-      if (classes.includes('single-line')) {
-        // Check if it contains chord symbols
-        const $chordSymbols = $el.find('.b-accord__symbol');
-        if ($chordSymbols.length > 0) {
-          const chords: ChordData[] = [];
-          $chordSymbols.each((_, chordEl) => {
-            const symbol = $(chordEl).text().trim();
-            const parsed = this.parseChordSymbol(symbol);
-            if (parsed) chords.push(parsed);
-          });
-          // Get lyrics by removing chord symbols
-          const lyrics = text;
-          currentSection.lines.push({ chords, lyrics });
-        } else if (text) {
-          currentSection.lines.push({ chords: [], lyrics: text });
-        }
-        return;
-      }
-
-      // Tab line (subline with tab-row) — skip guitar tabs
-      if (
-        classes.includes('subline') &&
-        $el.find('.b-words__tab-row').length > 0
-      ) {
-        return;
-      }
-
-      // Empty line / separator (&nbsp;)
-      if (!text || text === '\u00a0') {
-        if (currentSection.lines.length > 0) {
-          sections.push(currentSection);
-          currentSection = { label: '', lines: [] };
-        }
-        return;
-      }
-
-      // Fallback: treat as lyrics
-      if (text) {
-        currentSection.lines.push({ chords: [], lyrics: text });
-      }
-    });
-
-    if (currentSection.lines.length > 0) {
-      sections.push(currentSection);
-    }
-
-    // Filter out sections that only have tab lines (empty after filtering)
-    return {
-      id,
-      title,
-      artist,
-      url,
-      sections: sections.filter((s) => s.lines.length > 0),
-    };
-  }
-
-  private parsePline($: ReturnType<typeof load>, $el: any): SongLine {
-    const chords: ChordData[] = [];
-    let lyrics = '';
-
-    const $cSubline = $el.find('.c-subline');
-    if ($cSubline.length > 0) {
-      const $sublines = $cSubline.find('.subline');
-      if ($sublines.length >= 2) {
-        // First span.subline = chords, second span.subline = lyrics
-        const $chordLine = $sublines.first();
-        const $lyricLine = $sublines.last();
-
-        // Extract chord symbols from .b-accord__symbol spans
-        $chordLine.find('.b-accord__symbol').each((_, chordEl: any) => {
-          const symbol = $(chordEl).text().trim();
-          const parsed = this.parseChordSymbol(symbol);
-          if (parsed) {
-            chords.push(parsed);
+          if (classes.includes('b-lr-section') || el.querySelector('.b-lr-section')) {
+            const sectionEl = el.querySelector('.b-lr-section') || el;
+            elements.push({ type: 'section', classes, text: sectionEl.textContent?.trim() || '', chords: [], lyrics: '' });
+            return;
           }
+
+          if (classes.includes('pline')) {
+            const sublines = el.querySelectorAll('.subline');
+            const chords: string[] = [];
+            let lyrics = '';
+
+            if (sublines.length >= 2) {
+              sublines[0].querySelectorAll('.b-accord__symbol').forEach((c) => {
+                const t = c.textContent?.trim();
+                if (t) chords.push(t);
+              });
+              lyrics = sublines[sublines.length - 1].textContent?.replace(/\u00a0/g, ' ').trim() || '';
+            }
+
+            elements.push({ type: 'pline', classes, text, chords, lyrics });
+            return;
+          }
+
+          if (classes.includes('single-line')) {
+            const chords: string[] = [];
+            el.querySelectorAll('.b-accord__symbol').forEach((c) => {
+              const t = c.textContent?.trim();
+              if (t) chords.push(t);
+            });
+            elements.push({ type: 'single-line', classes, text, chords, lyrics: text });
+            return;
+          }
+
+          if (!text || text === '\u00a0') {
+            elements.push({ type: 'empty', classes, text: '', chords: [], lyrics: '' });
+            return;
+          }
+
+          elements.push({ type: 'text', classes, text, chords: [], lyrics: text });
         });
 
-        lyrics = $lyricLine.text().replace(/\u00a0/g, ' ').trim();
+        return elements;
+      });
+
+      // Build sections from extracted data
+      const sections: SongSection[] = [];
+      let currentSection: SongSection = { label: '', lines: [] };
+
+      for (const el of rawData) {
+        if (el.type === 'section') {
+          if (currentSection.lines.length > 0) {
+            sections.push(currentSection);
+          }
+          currentSection = { label: el.text, lines: [] };
+          continue;
+        }
+
+        if (el.type === 'pline') {
+          const chords = el.chords
+            .map((s) => this.parseChordSymbol(s))
+            .filter((c): c is ChordData => c !== null);
+          currentSection.lines.push({ chords, lyrics: el.lyrics });
+          continue;
+        }
+
+        if (el.type === 'single-line') {
+          if (el.chords.length > 0) {
+            const chords = el.chords
+              .map((s) => this.parseChordSymbol(s))
+              .filter((c): c is ChordData => c !== null);
+            currentSection.lines.push({ chords, lyrics: el.text });
+          } else if (el.text) {
+            currentSection.lines.push({ chords: [], lyrics: el.text });
+          }
+          continue;
+        }
+
+        if (el.type === 'empty') {
+          if (currentSection.lines.length > 0) {
+            sections.push(currentSection);
+            currentSection = { label: '', lines: [] };
+          }
+          continue;
+        }
+
+        if (el.text) {
+          currentSection.lines.push({ chords: [], lyrics: el.text });
+        }
       }
-    }
 
-    // Fallback if c-subline structure not found
-    if (chords.length === 0 && !lyrics) {
-      const $sublines = $el.find('.subline');
-      if ($sublines.length >= 2) {
-        const $chordLine = $sublines.first();
-        const $lyricLine = $sublines.last();
-
-        $chordLine.find('.b-accord__symbol').each((_, chordEl: any) => {
-          const symbol = $(chordEl).text().trim();
-          const parsed = this.parseChordSymbol(symbol);
-          if (parsed) chords.push(parsed);
-        });
-
-        lyrics = $lyricLine.text().replace(/\u00a0/g, ' ').trim();
+      if (currentSection.lines.length > 0) {
+        sections.push(currentSection);
       }
-    }
 
-    return { chords, lyrics };
+      return {
+        id,
+        title,
+        artist,
+        url: fullUrl,
+        sections: sections.filter((s) => s.lines.length > 0),
+      };
+    } finally {
+      await page.close();
+    }
   }
 
   private parseChordSymbol(symbol: string): ChordData | null {
-    const cleaned = symbol.trim().replace(/\(.*\)/, ''); // Remove (VII) etc.
+    const cleaned = symbol.trim().replace(/\(.*\)/, '');
     const match = cleaned.match(this.chordRegex);
     if (!match) return null;
 
+    let root = match[1];
+    if (root === 'H') root = 'B';
+    else if (root === 'Hb') root = 'Bb';
+
+    let bassNote = match[5] || undefined;
+    if (bassNote === 'H') bassNote = 'B';
+    else if (bassNote === 'Hb') bassNote = 'Bb';
+
     return {
-      root: match[1],
+      root,
       quality: (match[2] || '') + (match[3] || ''),
-      bassNote: match[5] || undefined,
+      bassNote,
       position: 0,
     };
-  }
-
-  private parsePreformatted(text: string): SongLine[] {
-    const lines: SongLine[] = [];
-    const rawLines = text.split('\n');
-
-    for (const rawLine of rawLines) {
-      const trimmed = rawLine.trim();
-      if (!trimmed) continue;
-
-      const tokens = trimmed.split(/\s+/);
-      const allChords = tokens.every((t) => this.chordRegex.test(t));
-
-      if (allChords && tokens.length > 0) {
-        const chords = tokens
-          .map((t) => this.parseChordSymbol(t))
-          .filter((c): c is ChordData => c !== null);
-        lines.push({ chords, lyrics: '' });
-      } else {
-        lines.push({ chords: [], lyrics: trimmed });
-      }
-    }
-
-    return lines;
   }
 }
