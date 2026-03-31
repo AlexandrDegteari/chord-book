@@ -33,14 +33,6 @@ class SettingsScreen extends ConsumerWidget {
                 onTap: () => ref.read(themeProvider.notifier).setTheme(mode),
               )),
           const Divider(),
-          const _SectionTitle('Audio'),
-          const ListTile(
-            leading: Icon(Icons.mic),
-            title: Text('Chord Detection'),
-            subtitle: Text('Coming soon'),
-            enabled: false,
-          ),
-          const Divider(),
           const _SectionTitle('About'),
           const ListTile(
             leading: Icon(Icons.info_outline),

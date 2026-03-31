@@ -11,6 +11,7 @@ import '../utils/chord_utils.dart';
 import '../widgets/chord_detector_overlay.dart';
 import '../widgets/chord_line.dart';
 import '../widgets/section_header.dart';
+import '../widgets/tuner_bottom_sheet.dart';
 
 class _ChordPosition {
   final int section;
@@ -66,6 +67,15 @@ class _SongScreenState extends ConsumerState<SongScreen> {
       ref.read(audioProvider.notifier).stopListening();
     });
     super.dispose();
+  }
+
+  void _showTuner(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const TunerBottomSheet(),
+    );
   }
 
   String _lineKeyId(int s, int l) => '$s:$l';
@@ -393,6 +403,12 @@ class _SongScreenState extends ConsumerState<SongScreen> {
               child: const Text('Reset', style: TextStyle(fontSize: 12)),
             ),
           const Spacer(),
+          IconButton(
+            onPressed: () => _showTuner(context),
+            icon: const Icon(Icons.tune, size: 18),
+            tooltip: 'Tuner', visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 4),
           IconButton(
             onPressed: _fontSize > 12 ? () => setState(() => _fontSize -= 2) : null,
             icon: const Icon(Icons.text_decrease, size: 18),
