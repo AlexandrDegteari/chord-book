@@ -1,4 +1,4 @@
-package com.sixstrings.sixstrings
+package com.sixstrings.app
 
 import io.flutter.embedding.android.FlutterActivity
 
