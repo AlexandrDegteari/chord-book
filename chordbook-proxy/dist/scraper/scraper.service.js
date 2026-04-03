@@ -67,6 +67,7 @@ let ScraperService = ScraperService_1 = class ScraperService {
     browser = null;
     lastRequestTime = 0;
     minRequestInterval = 3000;
+    maxRequestInterval = 6000;
     backoffUntil = 0;
     backoffDuration = 30000;
     proxyUrl = process.env.SCRAPER_PROXY_URL || '';
@@ -84,9 +85,10 @@ let ScraperService = ScraperService_1 = class ScraperService {
             this.logger.warn(`Rate limit backoff: waiting ${Math.round(wait / 1000)}s`);
             await new Promise((r) => setTimeout(r, wait));
         }
+        const interval = this.minRequestInterval + Math.random() * (this.maxRequestInterval - this.minRequestInterval);
         const elapsed = Date.now() - this.lastRequestTime;
-        if (elapsed < this.minRequestInterval) {
-            await new Promise((r) => setTimeout(r, this.minRequestInterval - elapsed));
+        if (elapsed < interval) {
+            await new Promise((r) => setTimeout(r, interval - elapsed));
         }
         this.lastRequestTime = Date.now();
     }

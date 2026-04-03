@@ -60,7 +60,8 @@ export class ScraperService implements OnModuleDestroy {
 
   // Rate limiting
   private lastRequestTime = 0;
-  private readonly minRequestInterval = 3000; // 3 seconds between requests
+  private readonly minRequestInterval = 3000; // minimum 3 seconds between requests
+  private readonly maxRequestInterval = 6000; // maximum 6 seconds between requests
   private backoffUntil = 0; // timestamp until which we should not make requests
   private backoffDuration = 30000; // starts at 30s, doubles on consecutive 429s
 
@@ -85,10 +86,11 @@ export class ScraperService implements OnModuleDestroy {
       await new Promise((r) => setTimeout(r, wait));
     }
 
-    // Enforce minimum interval between requests
+    // Enforce randomized interval between requests (3-6s)
+    const interval = this.minRequestInterval + Math.random() * (this.maxRequestInterval - this.minRequestInterval);
     const elapsed = Date.now() - this.lastRequestTime;
-    if (elapsed < this.minRequestInterval) {
-      await new Promise((r) => setTimeout(r, this.minRequestInterval - elapsed));
+    if (elapsed < interval) {
+      await new Promise((r) => setTimeout(r, interval - elapsed));
     }
     this.lastRequestTime = Date.now();
   }

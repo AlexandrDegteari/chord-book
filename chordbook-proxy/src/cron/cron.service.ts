@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
+import { Op, Sequelize } from 'sequelize';
 import { Song } from '../database/song.model';
 import { ScraperService, RateLimitError } from '../scraper/scraper.service';
 
@@ -7,6 +8,11 @@ import { ScraperService, RateLimitError } from '../scraper/scraper.service';
 export class CronService {
   private readonly logger = new Logger(CronService.name);
   private isRunning = false;
+
+  // Backfill state
+  private backfillRunning = false;
+  private backfillShouldStop = false;
+  private backfillProgress = { total: 0, processed: 0, updated: 0, failed: 0 };
 
   constructor(
     @InjectModel(Song) private readonly songModel: typeof Song,
@@ -117,6 +123,115 @@ export class CronService {
 
     const result = { totalArtists, totalSongs, skipped, failed };
     this.logger.log(`Full scrape complete: ${JSON.stringify(result)}`);
+    return result;
+  }
+
+  getBackfillStatus() {
+    return { running: this.backfillRunning, ...this.backfillProgress };
+  }
+
+  stopBackfill() {
+    if (!this.backfillRunning) {
+      return { error: 'Backfill is not running' };
+    }
+    this.backfillShouldStop = true;
+    return { message: 'Stop signal sent, will stop after current song' };
+  }
+
+  async backfillSections(limit = 5000, artistFilter?: string) {
+    if (this.backfillRunning) {
+      return { error: 'Backfill already running' };
+    }
+
+    this.backfillRunning = true;
+    this.backfillShouldStop = false;
+    this.backfillProgress = { total: 0, processed: 0, updated: 0, failed: 0 };
+
+    this.logger.log(`Starting backfill sections (limit=${limit}${artistFilter ? `, artist="${artistFilter}"` : ''})...`);
+
+    try {
+      // Build where clause
+      const emptySectionsCondition = "sections IS NULL OR sections::text = '[]' OR sections::text = 'null'";
+      const whereClause = artistFilter
+        ? { [Op.and]: [
+            Sequelize.literal(emptySectionsCondition),
+            { artist: { [Op.iLike]: `%${artistFilter}%` } },
+          ] }
+        : Sequelize.literal(emptySectionsCondition);
+
+      // Count total songs needing backfill
+      const totalNeeding = await this.songModel.count({ where: whereClause as any });
+      this.backfillProgress.total = Math.min(totalNeeding, limit);
+      this.logger.log(`Found ${totalNeeding} songs without sections, will process ${this.backfillProgress.total}`);
+
+      const batchSize = 100;
+      let processed = 0;
+
+      while (processed < limit && !this.backfillShouldStop) {
+        const songs = await this.songModel.findAll({
+          where: whereClause as any,
+          order: [['id', 'ASC']],
+          limit: batchSize,
+        });
+
+        if (songs.length === 0) break;
+
+        for (const song of songs) {
+          if (processed >= limit || this.backfillShouldStop) break;
+
+          if (!song.url) {
+            this.backfillProgress.failed++;
+            processed++;
+            this.backfillProgress.processed = processed;
+            continue;
+          }
+
+          try {
+            const scraped = await this.scraperService.getSongByUrl(song.url);
+            const hasSections = Array.isArray(scraped.sections) && scraped.sections.length > 0;
+
+            if (hasSections) {
+              const hasCyrillic = (s: string) => /[а-яёА-ЯЁіїєґІЇЄҐ]/.test(s);
+              const updateData: any = {
+                sections: scraped.sections,
+                scrapedAt: new Date(),
+              };
+              // Update names if scraped has Cyrillic or existing doesn't
+              if (hasCyrillic(scraped.title) || !hasCyrillic(song.title)) {
+                updateData.title = scraped.title;
+                updateData.artist = scraped.artist;
+              }
+              await song.update(updateData);
+              this.backfillProgress.updated++;
+            } else {
+              this.backfillProgress.failed++;
+            }
+          } catch (err) {
+            this.backfillProgress.failed++;
+            if (err instanceof RateLimitError) {
+              this.logger.warn('Rate limited during backfill — waiting 90s');
+              await new Promise((r) => setTimeout(r, 90000));
+            } else {
+              this.logger.warn(`Backfill failed for ${song.url}: ${err.message}`);
+            }
+          }
+
+          processed++;
+          this.backfillProgress.processed = processed;
+
+          // Extra pause every 50 songs to be gentle
+          if (processed % 50 === 0) {
+            this.logger.log(`Backfill progress: ${processed}/${this.backfillProgress.total} (updated=${this.backfillProgress.updated}, failed=${this.backfillProgress.failed})`);
+            await new Promise((r) => setTimeout(r, 30000));
+          }
+        }
+      }
+    } finally {
+      this.backfillRunning = false;
+    }
+
+    const result = { ...this.backfillProgress, stopped: this.backfillShouldStop };
+    this.logger.log(`Backfill complete: ${JSON.stringify(result)}`);
     return result;
   }
 }

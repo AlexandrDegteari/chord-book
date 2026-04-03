@@ -131,6 +131,21 @@ let AdminController = class AdminController {
     async cronStatus() {
         return this.cronService.getStatus();
     }
+    async backfillSections(limit, artist) {
+        const status = this.cronService.getBackfillStatus();
+        if (status.running) {
+            return { error: 'Backfill already running' };
+        }
+        const limitNum = parseInt(limit || '5000') || 5000;
+        this.cronService.backfillSections(limitNum, artist);
+        return { message: `Backfill started (limit=${limitNum}${artist ? `, artist="${artist}"` : ''}). Check status at /api/admin/cron/backfill-status` };
+    }
+    async backfillStatus() {
+        return this.cronService.getBackfillStatus();
+    }
+    async backfillStop() {
+        return this.cronService.stopBackfill();
+    }
     async bulkImport(body) {
         if (!body.songs || !Array.isArray(body.songs)) {
             return { error: 'songs array required' };
@@ -319,6 +334,26 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "cronStatus", null);
+__decorate([
+    (0, common_1.Post)('cron/backfill-sections'),
+    __param(0, (0, common_1.Query)('limit')),
+    __param(1, (0, common_1.Query)('artist')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "backfillSections", null);
+__decorate([
+    (0, common_1.Get)('cron/backfill-status'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "backfillStatus", null);
+__decorate([
+    (0, common_1.Post)('cron/backfill-stop'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "backfillStop", null);
 __decorate([
     (0, common_1.Post)('bulk-import'),
     __param(0, (0, common_1.Body)()),

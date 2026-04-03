@@ -149,6 +149,30 @@ export class AdminController {
     return this.cronService.getStatus();
   }
 
+  @Post('cron/backfill-sections')
+  async backfillSections(
+    @Query('limit') limit?: string,
+    @Query('artist') artist?: string,
+  ) {
+    const status = this.cronService.getBackfillStatus();
+    if (status.running) {
+      return { error: 'Backfill already running' };
+    }
+    const limitNum = parseInt(limit || '5000') || 5000;
+    this.cronService.backfillSections(limitNum, artist);
+    return { message: `Backfill started (limit=${limitNum}${artist ? `, artist="${artist}"` : ''}). Check status at /api/admin/cron/backfill-status` };
+  }
+
+  @Get('cron/backfill-status')
+  async backfillStatus() {
+    return this.cronService.getBackfillStatus();
+  }
+
+  @Post('cron/backfill-stop')
+  async backfillStop() {
+    return this.cronService.stopBackfill();
+  }
+
   @Post('bulk-import')
   async bulkImport(@Body() body: { songs: Array<{ id: string; title: string; artist: string; url: string }> }) {
     if (!body.songs || !Array.isArray(body.songs)) {

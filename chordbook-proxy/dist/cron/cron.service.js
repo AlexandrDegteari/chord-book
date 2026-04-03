@@ -16,6 +16,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CronService = void 0;
 const common_1 = require("@nestjs/common");
 const sequelize_1 = require("@nestjs/sequelize");
+const sequelize_2 = require("sequelize");
 const song_model_1 = require("../database/song.model");
 const scraper_service_1 = require("../scraper/scraper.service");
 let CronService = CronService_1 = class CronService {
@@ -23,6 +24,9 @@ let CronService = CronService_1 = class CronService {
     scraperService;
     logger = new common_1.Logger(CronService_1.name);
     isRunning = false;
+    backfillRunning = false;
+    backfillShouldStop = false;
+    backfillProgress = { total: 0, processed: 0, updated: 0, failed: 0 };
     constructor(songModel, scraperService) {
         this.songModel = songModel;
         this.scraperService = scraperService;
@@ -118,6 +122,100 @@ let CronService = CronService_1 = class CronService {
         }
         const result = { totalArtists, totalSongs, skipped, failed };
         this.logger.log(`Full scrape complete: ${JSON.stringify(result)}`);
+        return result;
+    }
+    getBackfillStatus() {
+        return { running: this.backfillRunning, ...this.backfillProgress };
+    }
+    stopBackfill() {
+        if (!this.backfillRunning) {
+            return { error: 'Backfill is not running' };
+        }
+        this.backfillShouldStop = true;
+        return { message: 'Stop signal sent, will stop after current song' };
+    }
+    async backfillSections(limit = 5000, artistFilter) {
+        if (this.backfillRunning) {
+            return { error: 'Backfill already running' };
+        }
+        this.backfillRunning = true;
+        this.backfillShouldStop = false;
+        this.backfillProgress = { total: 0, processed: 0, updated: 0, failed: 0 };
+        this.logger.log(`Starting backfill sections (limit=${limit}${artistFilter ? `, artist="${artistFilter}"` : ''})...`);
+        try {
+            const emptySectionsCondition = "sections IS NULL OR sections::text = '[]' OR sections::text = 'null'";
+            const whereClause = artistFilter
+                ? { [sequelize_2.Op.and]: [
+                        sequelize_2.Sequelize.literal(emptySectionsCondition),
+                        { artist: { [sequelize_2.Op.iLike]: `%${artistFilter}%` } },
+                    ] }
+                : sequelize_2.Sequelize.literal(emptySectionsCondition);
+            const totalNeeding = await this.songModel.count({ where: whereClause });
+            this.backfillProgress.total = Math.min(totalNeeding, limit);
+            this.logger.log(`Found ${totalNeeding} songs without sections, will process ${this.backfillProgress.total}`);
+            const batchSize = 100;
+            let processed = 0;
+            while (processed < limit && !this.backfillShouldStop) {
+                const songs = await this.songModel.findAll({
+                    where: whereClause,
+                    order: [['id', 'ASC']],
+                    limit: batchSize,
+                });
+                if (songs.length === 0)
+                    break;
+                for (const song of songs) {
+                    if (processed >= limit || this.backfillShouldStop)
+                        break;
+                    if (!song.url) {
+                        this.backfillProgress.failed++;
+                        processed++;
+                        this.backfillProgress.processed = processed;
+                        continue;
+                    }
+                    try {
+                        const scraped = await this.scraperService.getSongByUrl(song.url);
+                        const hasSections = Array.isArray(scraped.sections) && scraped.sections.length > 0;
+                        if (hasSections) {
+                            const hasCyrillic = (s) => /[а-яёА-ЯЁіїєґІЇЄҐ]/.test(s);
+                            const updateData = {
+                                sections: scraped.sections,
+                                scrapedAt: new Date(),
+                            };
+                            if (hasCyrillic(scraped.title) || !hasCyrillic(song.title)) {
+                                updateData.title = scraped.title;
+                                updateData.artist = scraped.artist;
+                            }
+                            await song.update(updateData);
+                            this.backfillProgress.updated++;
+                        }
+                        else {
+                            this.backfillProgress.failed++;
+                        }
+                    }
+                    catch (err) {
+                        this.backfillProgress.failed++;
+                        if (err instanceof scraper_service_1.RateLimitError) {
+                            this.logger.warn('Rate limited during backfill — waiting 90s');
+                            await new Promise((r) => setTimeout(r, 90000));
+                        }
+                        else {
+                            this.logger.warn(`Backfill failed for ${song.url}: ${err.message}`);
+                        }
+                    }
+                    processed++;
+                    this.backfillProgress.processed = processed;
+                    if (processed % 50 === 0) {
+                        this.logger.log(`Backfill progress: ${processed}/${this.backfillProgress.total} (updated=${this.backfillProgress.updated}, failed=${this.backfillProgress.failed})`);
+                        await new Promise((r) => setTimeout(r, 30000));
+                    }
+                }
+            }
+        }
+        finally {
+            this.backfillRunning = false;
+        }
+        const result = { ...this.backfillProgress, stopped: this.backfillShouldStop };
+        this.logger.log(`Backfill complete: ${JSON.stringify(result)}`);
         return result;
     }
 };

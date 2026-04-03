@@ -37,6 +37,7 @@ export declare class ScraperService implements OnModuleDestroy {
     private browser;
     private lastRequestTime;
     private readonly minRequestInterval;
+    private readonly maxRequestInterval;
     private backoffUntil;
     private backoffDuration;
     private readonly proxyUrl;

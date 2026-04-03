@@ -49,6 +49,27 @@ export declare class AdminController {
     cronStatus(): Promise<{
         isRunning: boolean;
     }>;
+    backfillSections(limit?: string, artist?: string): Promise<{
+        error: string;
+        message?: undefined;
+    } | {
+        message: string;
+        error?: undefined;
+    }>;
+    backfillStatus(): Promise<{
+        total: number;
+        processed: number;
+        updated: number;
+        failed: number;
+        running: boolean;
+    }>;
+    backfillStop(): Promise<{
+        error: string;
+        message?: undefined;
+    } | {
+        message: string;
+        error?: undefined;
+    }>;
     bulkImport(body: {
         songs: Array<{
             id: string;
