@@ -4,6 +4,11 @@ import '../models/search_result.dart';
 import '../models/song.dart';
 import 'device_service.dart';
 
+class ServerBusyException implements Exception {
+  @override
+  String toString() => 'Server is busy';
+}
+
 class ApiService {
   late final Dio _dio;
   bool _deviceRegistered = false;
@@ -43,14 +48,28 @@ class ApiService {
   }
 
   Future<Song> getSong(String songId) async {
-    final response = await _dio.get('/song/$songId');
-    return Song.fromJson(response.data as Map<String, dynamic>);
+    try {
+      final response = await _dio.get('/song/$songId');
+      return Song.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 429) {
+        throw ServerBusyException();
+      }
+      rethrow;
+    }
   }
 
   Future<Song> getSongByUrl(String url) async {
-    final response =
-        await _dio.get('/song-by-url', queryParameters: {'url': url});
-    return Song.fromJson(response.data as Map<String, dynamic>);
+    try {
+      final response =
+          await _dio.get('/song-by-url', queryParameters: {'url': url});
+      return Song.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 429) {
+        throw ServerBusyException();
+      }
+      rethrow;
+    }
   }
 
   // Playlists

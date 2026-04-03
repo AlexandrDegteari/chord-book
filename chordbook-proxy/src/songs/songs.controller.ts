@@ -1,5 +1,6 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, HttpException, HttpStatus } from '@nestjs/common';
 import { SongsService } from './songs.service';
+import { RateLimitError } from '../scraper/scraper.service';
 
 @Controller('api')
 export class SongsController {
@@ -15,7 +16,14 @@ export class SongsController {
 
   @Get('song/:id')
   async getSong(@Param('id') id: string) {
-    return this.songsService.getSong(id);
+    try {
+      return await this.songsService.getSong(id);
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        throw new HttpException('Server is busy, try again later', HttpStatus.TOO_MANY_REQUESTS);
+      }
+      throw err;
+    }
   }
 
   @Get('song-by-url')
@@ -23,6 +31,13 @@ export class SongsController {
     if (!url) {
       return { error: 'URL is required' };
     }
-    return this.songsService.getSongByUrl(url);
+    try {
+      return await this.songsService.getSongByUrl(url);
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        throw new HttpException('Server is busy, try again later', HttpStatus.TOO_MANY_REQUESTS);
+      }
+      throw err;
+    }
   }
 }

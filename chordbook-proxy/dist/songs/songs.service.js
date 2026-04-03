@@ -130,10 +130,9 @@ let SongsService = SongsService_1 = class SongsService {
         catch (err) {
             if (err instanceof scraper_service_1.RateLimitError) {
                 this.logger.warn('Scraper rate limited (429) for getSong');
+                throw err;
             }
-            else {
-                this.logger.warn(`Scraper getSong failed: ${err.message}`);
-            }
+            this.logger.warn(`Scraper getSong failed: ${err.message}`);
             const fallback = dbSong || dbSongById;
             if (fallback)
                 return this.formatSong(fallback);
@@ -167,10 +166,9 @@ let SongsService = SongsService_1 = class SongsService {
         catch (err) {
             if (err instanceof scraper_service_1.RateLimitError) {
                 this.logger.warn('Scraper rate limited (429) for getSongByUrl');
+                throw err;
             }
-            else {
-                this.logger.warn(`Scraper getSongByUrl failed: ${err.message}`);
-            }
+            this.logger.warn(`Scraper getSongByUrl failed: ${err.message}`);
             const fallback = dbSong || dbSongByExtId;
             if (fallback)
                 return this.formatSong(fallback);

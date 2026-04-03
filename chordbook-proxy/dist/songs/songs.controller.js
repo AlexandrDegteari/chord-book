@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SongsController = void 0;
 const common_1 = require("@nestjs/common");
 const songs_service_1 = require("./songs.service");
+const scraper_service_1 = require("../scraper/scraper.service");
 let SongsController = class SongsController {
     songsService;
     constructor(songsService) {
@@ -27,13 +28,29 @@ let SongsController = class SongsController {
         return this.songsService.search(query);
     }
     async getSong(id) {
-        return this.songsService.getSong(id);
+        try {
+            return await this.songsService.getSong(id);
+        }
+        catch (err) {
+            if (err instanceof scraper_service_1.RateLimitError) {
+                throw new common_1.HttpException('Server is busy, try again later', common_1.HttpStatus.TOO_MANY_REQUESTS);
+            }
+            throw err;
+        }
     }
     async getSongByUrl(url) {
         if (!url) {
             return { error: 'URL is required' };
         }
-        return this.songsService.getSongByUrl(url);
+        try {
+            return await this.songsService.getSongByUrl(url);
+        }
+        catch (err) {
+            if (err instanceof scraper_service_1.RateLimitError) {
+                throw new common_1.HttpException('Server is busy, try again later', common_1.HttpStatus.TOO_MANY_REQUESTS);
+            }
+            throw err;
+        }
     }
 };
 exports.SongsController = SongsController;

@@ -285,6 +285,15 @@ class AppLocalizationsRu extends AppLocalizations {
   String get songContent => 'Текст с аккордами: [Am]текст [C]здесь';
 
   @override
+  String get serverBusy => 'Сервер занят';
+
+  @override
+  String get serverBusyMessage => 'Сервер загружает данные песни. Попробуйте через несколько секунд.';
+
+  @override
+  String get refreshSong => 'Обновить';
+
+  @override
   String nSongs(int count) {
     return '$count песен';
   }

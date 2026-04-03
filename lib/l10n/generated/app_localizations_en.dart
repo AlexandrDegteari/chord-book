@@ -285,6 +285,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get songContent => 'Lyrics with chords like [Am]text [C]here';
 
   @override
+  String get serverBusy => 'Server is busy';
+
+  @override
+  String get serverBusyMessage => 'The server is loading song data. Please try again in a moment.';
+
+  @override
+  String get refreshSong => 'Refresh';
+
+  @override
   String nSongs(int count) {
     return '$count songs';
   }

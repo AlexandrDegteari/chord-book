@@ -147,9 +147,10 @@ export class SongsService {
     } catch (err) {
       if (err instanceof RateLimitError) {
         this.logger.warn('Scraper rate limited (429) for getSong');
-      } else {
-        this.logger.warn(`Scraper getSong failed: ${err.message}`);
+        // Propagate 429 so client can show "server busy" UI
+        throw err;
       }
+      this.logger.warn(`Scraper getSong failed: ${err.message}`);
       // Return DB song even without sections (better than nothing)
       const fallback = dbSong || dbSongById;
       if (fallback) return this.formatSong(fallback);
@@ -190,9 +191,10 @@ export class SongsService {
     } catch (err) {
       if (err instanceof RateLimitError) {
         this.logger.warn('Scraper rate limited (429) for getSongByUrl');
-      } else {
-        this.logger.warn(`Scraper getSongByUrl failed: ${err.message}`);
+        // Propagate 429 so client can show "server busy" UI
+        throw err;
       }
+      this.logger.warn(`Scraper getSongByUrl failed: ${err.message}`);
       const fallback = dbSong || dbSongByExtId;
       if (fallback) return this.formatSong(fallback);
       throw err;

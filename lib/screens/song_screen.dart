@@ -16,6 +16,7 @@ import '../widgets/section_header.dart';
 import '../widgets/metronome_bottom_sheet.dart';
 import '../widgets/tuner_bottom_sheet.dart';
 import '../widgets/add_to_playlist_sheet.dart';
+import '../services/api_service.dart';
 import 'package:go_router/go_router.dart';
 
 class _ChordPosition {
@@ -280,9 +281,21 @@ class _SongScreenState extends ConsumerState<SongScreen> {
                     '&title=${Uri.encodeComponent(song.title)}'
                     '&artist=${Uri.encodeComponent(song.artist)}',
                   );
+                } else if (value == 'refresh') {
+                  ref.invalidate(currentSongProvider(widget.songUrl));
                 }
               },
               itemBuilder: (ctx) => [
+                PopupMenuItem(
+                  value: 'refresh',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.refresh, size: 20),
+                      const SizedBox(width: 8),
+                      Text(AppLocalizations.of(ctx)!.refreshSong),
+                    ],
+                  ),
+                ),
                 PopupMenuItem(
                   value: 'my_version',
                   child: Row(
@@ -299,6 +312,35 @@ class _SongScreenState extends ConsumerState<SongScreen> {
         ],
       ),
       body: switch (songAsync) {
+        AsyncValue(:final error?) when error is ServerBusyException => Center(
+            child: Padding(
+              padding: const EdgeInsets.all(DesignTokens.spacingLg),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.hourglass_top, size: 64, color: theme.colorScheme.primary),
+                  const SizedBox(height: DesignTokens.spacingMd),
+                  Text(AppLocalizations.of(context)!.serverBusy,
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: theme.colorScheme.onSurface)),
+                  const SizedBox(height: DesignTokens.spacingSm),
+                  Text(AppLocalizations.of(context)!.serverBusyMessage,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 14, color: theme.colorScheme.onSurfaceVariant)),
+                  const SizedBox(height: DesignTokens.spacingXl),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: FilledButton.icon(
+                      onPressed: () => ref.invalidate(currentSongProvider(widget.songUrl)),
+                      icon: const Icon(Icons.refresh, size: 24),
+                      label: Text(AppLocalizations.of(context)!.refreshSong,
+                          style: const TextStyle(fontSize: 16)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         AsyncValue(:final error?) => Center(
             child: Padding(
               padding: const EdgeInsets.all(DesignTokens.spacingLg),

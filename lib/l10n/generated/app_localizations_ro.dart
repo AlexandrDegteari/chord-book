@@ -285,6 +285,15 @@ class AppLocalizationsRo extends AppLocalizations {
   String get songContent => 'Versuri cu acorduri: [Am]text [C]aici';
 
   @override
+  String get serverBusy => 'Server ocupat';
+
+  @override
+  String get serverBusyMessage => 'Serverul incarca datele melodiei. Incercati din nou in cateva secunde.';
+
+  @override
+  String get refreshSong => 'Reîmprospătare';
+
+  @override
   String nSongs(int count) {
     return '$count melodii';
   }

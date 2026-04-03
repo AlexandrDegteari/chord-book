@@ -90,6 +90,9 @@
   "addToFavorites": "Избранное",
   "newPlaylist": "Новый плейлист",
   "songContent": "Текст с аккордами: [Am]текст [C]здесь",
+  "serverBusy": "Сервер занят",
+  "serverBusyMessage": "Сервер загружает данные песни. Попробуйте через несколько секунд.",
+  "refreshSong": "Обновить",
   "nSongs": "{count} песен",
   "@nSongs": {
     "placeholders": {

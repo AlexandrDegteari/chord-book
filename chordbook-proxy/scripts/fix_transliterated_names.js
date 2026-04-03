@@ -19,7 +19,7 @@ const DB_CONFIG = {
   database: process.env.DB_NAME || 'sixstrings_db',
 };
 
-const DELAY_MS = parseInt(process.env.DELAY_MS || '2000');
+const DELAY_MS = parseInt(process.env.DELAY_MS || '500');
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));

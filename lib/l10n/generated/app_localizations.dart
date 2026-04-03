@@ -640,6 +640,24 @@ abstract class AppLocalizations {
   /// **'Lyrics with chords like [Am]text [C]here'**
   String get songContent;
 
+  /// No description provided for @serverBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'Server is busy'**
+  String get serverBusy;
+
+  /// No description provided for @serverBusyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The server is loading song data. Please try again in a moment.'**
+  String get serverBusyMessage;
+
+  /// No description provided for @refreshSong.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get refreshSong;
+
   /// No description provided for @nSongs.
   ///
   /// In en, this message translates to:

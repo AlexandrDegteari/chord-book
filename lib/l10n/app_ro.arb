@@ -90,6 +90,9 @@
   "addToFavorites": "Favorite",
   "newPlaylist": "Playlist nou",
   "songContent": "Versuri cu acorduri: [Am]text [C]aici",
+  "serverBusy": "Server ocupat",
+  "serverBusyMessage": "Serverul incarca datele melodiei. Incercati din nou in cateva secunde.",
+  "refreshSong": "Reîmprospătare",
   "nSongs": "{count} melodii",
   "@nSongs": {
     "placeholders": {

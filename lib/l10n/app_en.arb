@@ -105,6 +105,9 @@
   "addToFavorites": "Favorites",
   "newPlaylist": "New Playlist",
   "songContent": "Lyrics with chords like [Am]text [C]here",
+  "serverBusy": "Server is busy",
+  "serverBusyMessage": "The server is loading song data. Please try again in a moment.",
+  "refreshSong": "Refresh",
   "nSongs": "{count} songs",
   "@nSongs": {
     "placeholders": {
