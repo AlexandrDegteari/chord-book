@@ -100,6 +100,11 @@ class DatabaseHelper {
     )).toList();
   }
 
+  Future<void> removeRecent(String id) async {
+    final db = await database;
+    await db.delete('recent_songs', where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<void> addRecent(SearchResult song, {int maxRecent = 20}) async {
     final db = await database;
     await db.insert('recent_songs', {

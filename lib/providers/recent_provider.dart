@@ -40,4 +40,9 @@ class RecentNotifier extends Notifier<List<SearchResult>> {
     await _db.addRecent(song, maxRecent: _maxRecent);
     state = await _db.getRecent(limit: _maxRecent);
   }
+
+  Future<void> removeRecent(String id) async {
+    await _db.removeRecent(id);
+    state = state.where((s) => s.id != id).toList();
+  }
 }

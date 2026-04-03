@@ -215,12 +215,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ...recent.map((result) {
             final isFav =
                 ref.watch(favoritesProvider).any((f) => f.id == result.id);
-            return SongCard(
-              result: result,
-              isFavorite: isFav,
-              onFavoriteToggle: () =>
-                  ref.read(favoritesProvider.notifier).toggle(result),
-              onTap: () => _navigateToSong(result),
+            return Dismissible(
+              key: ValueKey('recent_${result.id}'),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                alignment: Alignment.centerRight,
+                padding: const EdgeInsets.only(right: DesignTokens.spacingMd),
+                margin: const EdgeInsets.symmetric(
+                  horizontal: DesignTokens.spacingMd,
+                  vertical: DesignTokens.spacingXs,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(DesignTokens.radiusMd),
+                ),
+                child: const Icon(Icons.close, color: Colors.white),
+              ),
+              onDismissed: (_) {
+                ref.read(recentProvider.notifier).removeRecent(result.id);
+              },
+              child: SongCard(
+                result: result,
+                isFavorite: isFav,
+                onFavoriteToggle: () =>
+                    ref.read(favoritesProvider.notifier).toggle(result),
+                onTap: () => _navigateToSong(result),
+              ),
             );
           }),
         ],

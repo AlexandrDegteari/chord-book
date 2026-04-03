@@ -34,7 +34,11 @@ export declare class ScraperService implements OnModuleDestroy {
     private getBrowser;
     onModuleDestroy(): Promise<void>;
     search(query: string): Promise<SearchResult[]>;
-    private getArtistSongs;
+    getArtistSongs(artistUrl: string, artistName: string): Promise<SearchResult[]>;
+    getAllArtists(): Promise<Array<{
+        name: string;
+        url: string;
+    }>>;
     getSong(id: string): Promise<Song>;
     getSongByUrl(url: string): Promise<Song>;
     private parseChordSymbol;

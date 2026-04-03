@@ -8,15 +8,14 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ScraperModule = void 0;
 const common_1 = require("@nestjs/common");
-const scraper_controller_1 = require("./scraper.controller");
 const scraper_service_1 = require("./scraper.service");
 let ScraperModule = class ScraperModule {
 };
 exports.ScraperModule = ScraperModule;
 exports.ScraperModule = ScraperModule = __decorate([
     (0, common_1.Module)({
-        controllers: [scraper_controller_1.ScraperController],
         providers: [scraper_service_1.ScraperService],
+        exports: [scraper_service_1.ScraperService],
     })
 ], ScraperModule);
 //# sourceMappingURL=scraper.module.js.map
