@@ -538,10 +538,24 @@ function adminApp() {
       this.loadingSong = true;
       this.viewingSong = { title: song.title, artist: song.artist, sections: [] };
       try {
+        // Try admin endpoint first (fast, DB only)
         const res = await fetch(`${API}/admin/song/${song.id}`, { headers: this.headers() });
         if (res.ok) {
           const data = await res.json();
-          this.viewingSong = data;
+          if (data && data.sections && data.sections.length > 0) {
+            this.viewingSong = data;
+            this.loadingSong = false;
+            return;
+          }
+        }
+        // No sections in DB — try public API which triggers scraper
+        const id = song.externalId || song.id;
+        const res2 = await fetch(`${API}/song/${id}`);
+        if (res2.ok) {
+          const data2 = await res2.json();
+          if (data2 && data2.sections) {
+            this.viewingSong = data2;
+          }
         }
       } catch {}
       this.loadingSong = false;
