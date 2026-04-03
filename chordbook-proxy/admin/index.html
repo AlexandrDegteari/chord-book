@@ -538,8 +538,7 @@ function adminApp() {
       this.loadingSong = true;
       this.viewingSong = { title: song.title, artist: song.artist, sections: [] };
       try {
-        const id = song.externalId || song.id;
-        const res = await fetch(`${API}/song/${id}`);
+        const res = await fetch(`${API}/admin/songs/${song.id}`, { headers: this.headers() });
         if (res.ok) {
           const data = await res.json();
           this.viewingSong = data;

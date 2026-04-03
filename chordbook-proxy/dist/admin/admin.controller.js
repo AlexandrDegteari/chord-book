@@ -117,6 +117,9 @@ let AdminController = class AdminController {
             totalPages: Math.ceil(count / limitNum),
         };
     }
+    async getSongDetail(id) {
+        return this.songModel.findByPk(id);
+    }
     async fullScrape() {
         const status = this.cronService.getStatus();
         if (status.isRunning) {
@@ -297,6 +300,13 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "getSongs", null);
+__decorate([
+    (0, common_1.Get)('songs/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getSongDetail", null);
 __decorate([
     (0, common_1.Post)('cron/full-scrape'),
     __metadata("design:type", Function),

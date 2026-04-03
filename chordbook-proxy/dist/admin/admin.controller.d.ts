@@ -38,6 +38,7 @@ export declare class AdminController {
         page: number;
         totalPages: number;
     }>;
+    getSongDetail(id: string): Promise<Song | null>;
     fullScrape(): Promise<{
         error: string;
         message?: undefined;

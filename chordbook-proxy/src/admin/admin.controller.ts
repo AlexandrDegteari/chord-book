@@ -128,6 +128,11 @@ export class AdminController {
     };
   }
 
+  @Get('songs/:id')
+  async getSongDetail(@Param('id') id: string) {
+    return this.songModel.findByPk(id);
+  }
+
   @Post('cron/full-scrape')
   async fullScrape() {
     // Run in background, return immediately
