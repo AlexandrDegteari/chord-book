@@ -75,6 +75,9 @@ let AdminController = class AdminController {
     async getDevices() {
         return this.devicesService.findAll();
     }
+    async getSongDetail(id) {
+        return this.songModel.findByPk(id);
+    }
     async getSongs(page = '1', limit = '50', letter, search) {
         const pageNum = Math.max(1, parseInt(page) || 1);
         const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50));
@@ -116,9 +119,6 @@ let AdminController = class AdminController {
             page: pageNum,
             totalPages: Math.ceil(count / limitNum),
         };
-    }
-    async getSongDetail(id) {
-        return this.songModel.findByPk(id);
     }
     async fullScrape() {
         const status = this.cronService.getStatus();
@@ -291,6 +291,13 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "getDevices", null);
 __decorate([
+    (0, common_1.Get)('songs/:id'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getSongDetail", null);
+__decorate([
     (0, common_1.Get)('songs'),
     __param(0, (0, common_1.Query)('page')),
     __param(1, (0, common_1.Query)('limit')),
@@ -300,13 +307,6 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "getSongs", null);
-__decorate([
-    (0, common_1.Get)('songs/:id'),
-    __param(0, (0, common_1.Param)('id')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], AdminController.prototype, "getSongDetail", null);
 __decorate([
     (0, common_1.Post)('cron/full-scrape'),
     __metadata("design:type", Function),

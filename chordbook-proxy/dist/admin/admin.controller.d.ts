@@ -32,13 +32,13 @@ export declare class AdminController {
         reason: string;
     }): Promise<UserSong>;
     getDevices(): Promise<Device[]>;
+    getSongDetail(id: string): Promise<Song | null>;
     getSongs(page?: string, limit?: string, letter?: string, search?: string): Promise<{
         songs: Song[];
         total: number;
         page: number;
         totalPages: number;
     }>;
-    getSongDetail(id: string): Promise<Song | null>;
     fullScrape(): Promise<{
         error: string;
         message?: undefined;

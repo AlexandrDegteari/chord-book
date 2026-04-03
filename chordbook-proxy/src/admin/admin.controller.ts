@@ -71,6 +71,11 @@ export class AdminController {
     return this.devicesService.findAll();
   }
 
+  @Get('songs/:id')
+  async getSongDetail(@Param('id') id: string) {
+    return this.songModel.findByPk(id);
+  }
+
   @Get('songs')
   async getSongs(
     @Query('page') page: string = '1',
@@ -126,11 +131,6 @@ export class AdminController {
       page: pageNum,
       totalPages: Math.ceil(count / limitNum),
     };
-  }
-
-  @Get('songs/:id')
-  async getSongDetail(@Param('id') id: string) {
-    return this.songModel.findByPk(id);
   }
 
   @Post('cron/full-scrape')
