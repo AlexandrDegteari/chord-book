@@ -1,7 +1,15 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
-import axios from 'axios';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import axios, { AxiosRequestConfig } from 'axios';
 import { load } from 'cheerio';
 import * as puppeteer from 'puppeteer';
+import { HttpsProxyAgent } from 'https-proxy-agent';
+
+export class RateLimitError extends Error {
+  constructor(message = 'Rate limited by mychords.net (429)') {
+    super(message);
+    this.name = 'RateLimitError';
+  }
+}
 
 export interface SearchResult {
   id: string;
@@ -37,24 +45,72 @@ export interface Song {
 
 @Injectable()
 export class ScraperService implements OnModuleDestroy {
+  private readonly logger = new Logger(ScraperService.name);
   private readonly baseUrl = 'https://mychords.net';
   private readonly headers = {
     'User-Agent':
-      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept-Language': 'en-US,en;q=0.9,ru;q=0.8',
   };
 
   private readonly chordRegex =
-    /^([A-GH][#b]?)(m(?:aj)?|dim|aug|sus[24]?|add)?(\d+)?(\/([A-GH][#b]?))?$/;
+    /^([A-GH][#b]?)(m(?:aj)?|dim|aug|sus[24]?|add)?(\d+)?(sus[24])?(\/([A-GH][#b]?))?$/;
 
   private browser: puppeteer.Browser | null = null;
 
+  // Rate limiting
+  private lastRequestTime = 0;
+  private readonly minRequestInterval = 3000; // 3 seconds between requests
+  private backoffUntil = 0; // timestamp until which we should not make requests
+  private backoffDuration = 30000; // starts at 30s, doubles on consecutive 429s
+
+  // Proxy
+  private readonly proxyUrl = process.env.SCRAPER_PROXY_URL || '';
+
+  private getAxiosConfig(): AxiosRequestConfig {
+    const config: AxiosRequestConfig = { headers: { ...this.headers } };
+    if (this.proxyUrl) {
+      config.httpsAgent = new HttpsProxyAgent(this.proxyUrl);
+    }
+    return config;
+  }
+
+  private async throttle(): Promise<void> {
+    const now = Date.now();
+
+    // Check backoff (from 429 responses)
+    if (now < this.backoffUntil) {
+      const wait = this.backoffUntil - now;
+      this.logger.warn(`Rate limit backoff: waiting ${Math.round(wait / 1000)}s`);
+      await new Promise((r) => setTimeout(r, wait));
+    }
+
+    // Enforce minimum interval between requests
+    const elapsed = Date.now() - this.lastRequestTime;
+    if (elapsed < this.minRequestInterval) {
+      await new Promise((r) => setTimeout(r, this.minRequestInterval - elapsed));
+    }
+    this.lastRequestTime = Date.now();
+  }
+
+  private handle429(): void {
+    this.backoffUntil = Date.now() + this.backoffDuration;
+    this.logger.warn(`Got 429 — backing off for ${this.backoffDuration / 1000}s`);
+    // Double backoff for next time, max 5 minutes
+    this.backoffDuration = Math.min(this.backoffDuration * 2, 300000);
+  }
+
+  private resetBackoff(): void {
+    this.backoffDuration = 30000;
+  }
+
   private async getBrowser(): Promise<puppeteer.Browser> {
     if (!this.browser || !this.browser.connected) {
-      this.browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      });
+      const args = ['--no-sandbox', '--disable-setuid-sandbox'];
+      if (this.proxyUrl) {
+        args.push(`--proxy-server=${this.proxyUrl}`);
+      }
+      this.browser = await puppeteer.launch({ headless: true, args });
     }
     return this.browser;
   }
@@ -67,16 +123,31 @@ export class ScraperService implements OnModuleDestroy {
   }
 
   async search(query: string): Promise<SearchResult[]> {
-    const { data } = await axios.get(
-      `${this.baseUrl}/en/ajax/autocomplete`,
-      {
+    await this.throttle();
+
+    const config = this.getAxiosConfig();
+    config.headers = { ...config.headers, 'X-Requested-With': 'XMLHttpRequest' };
+
+    let data: any;
+    try {
+      const resp = await axios.get(`${this.baseUrl}/en/ajax/autocomplete`, {
+        ...config,
         params: { q: query },
-        headers: {
-          ...this.headers,
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-      },
-    );
+      });
+      if (resp.status === 429) {
+        this.handle429();
+        throw new RateLimitError();
+      }
+      this.resetBackoff();
+      data = resp.data;
+    } catch (err) {
+      if (err instanceof RateLimitError) throw err;
+      if (err?.response?.status === 429) {
+        this.handle429();
+        throw new RateLimitError();
+      }
+      throw err;
+    }
 
     const results: SearchResult[] = [];
 
@@ -89,6 +160,7 @@ export class ScraperService implements OnModuleDestroy {
         const idMatch = url.match(/\/(\d+)-/);
 
         if (group === 'Songs' && idMatch) {
+          // The value field contains real Cyrillic names (e.g., "XOLIDAYBOY - Пожары")
           const parts = value.split(' - ');
           const artist = parts.length > 1 ? parts[0].trim() : '';
           const title =
@@ -120,11 +192,71 @@ export class ScraperService implements OnModuleDestroy {
     return results;
   }
 
+  /**
+   * Fetch the real Cyrillic name for a song by its external ID.
+   * Uses the autocomplete API which returns Cyrillic in the value field.
+   */
+  async fetchRealName(externalId: string): Promise<{ title: string; artist: string } | null> {
+    try {
+      await this.throttle();
+      const config = this.getAxiosConfig();
+      config.headers = { ...config.headers, 'X-Requested-With': 'XMLHttpRequest' };
+
+      const resp = await axios.get(`${this.baseUrl}/en/ajax/autocomplete`, {
+        ...config,
+        params: { q: externalId },
+      });
+
+      if (resp.status === 429 || resp.data?.suggestions === undefined) {
+        return null;
+      }
+
+      for (const suggestion of resp.data.suggestions || []) {
+        const url = suggestion.data?.url || '';
+        const group = suggestion.data?.group || '';
+        const value = suggestion.value || '';
+
+        if (group === 'Songs' && url.includes(`/${externalId}-`)) {
+          const parts = value.split(' - ');
+          if (parts.length > 1) {
+            return {
+              artist: parts[0].trim(),
+              title: parts.slice(1).join(' - ').trim(),
+            };
+          }
+        }
+      }
+    } catch {
+      // Silently fail — name lookup is best-effort
+    }
+    return null;
+  }
+
   async getArtistSongs(
     artistUrl: string,
     artistName: string,
   ): Promise<SearchResult[]> {
-    const { data } = await axios.get(artistUrl, { headers: this.headers });
+    await this.throttle();
+
+    const config = this.getAxiosConfig();
+    let data: string;
+    try {
+      const resp = await axios.get(artistUrl, config);
+      if (resp.status === 429) {
+        this.handle429();
+        throw new RateLimitError();
+      }
+      this.resetBackoff();
+      data = resp.data;
+    } catch (err) {
+      if (err instanceof RateLimitError) throw err;
+      if (err?.response?.status === 429) {
+        this.handle429();
+        throw new RateLimitError();
+      }
+      throw err;
+    }
+
     const $ = load(data);
     const results: SearchResult[] = [];
 
@@ -159,11 +291,9 @@ export class ScraperService implements OnModuleDestroy {
   async getAllArtists(): Promise<Array<{ name: string; url: string }>> {
     const artistMap = new Map<string, { name: string; url: string }>();
 
-    // Use autocomplete API with alphabet queries to discover artists
     const queries = [
       ...('abcdefghijklmnopqrstuvwxyz'.split('')),
       ...('абвгдежзиклмнопрстуфхцчшщэюя'.split('')),
-      // Common two-letter combos for broader coverage
       'th', 'ch', 'sh', 'st', 'tr', 'br', 'cr', 'gr', 'fr', 'pr',
       'ac', 'ad', 'al', 'am', 'an', 'ar', 'ba', 'be', 'bi', 'bl',
       'bo', 'ca', 'co', 'da', 'de', 'di', 'do', 'dr', 'ed', 'el',
@@ -174,7 +304,6 @@ export class ScraperService implements OnModuleDestroy {
       'ro', 'ru', 'sa', 'sc', 'se', 'si', 'sl', 'sm', 'sn', 'so',
       'sp', 'sq', 'su', 'sw', 'ta', 'te', 'ti', 'to', 'tu',
       'un', 'va', 'vi', 'wa', 'we', 'wi', 'yo', 'za',
-      // Russian two-letter
       'ал', 'ан', 'ар', 'ба', 'бе', 'би', 'бу', 'ва', 'ви', 'вл',
       'га', 'гр', 'да', 'де', 'ди', 'до', 'ев', 'за', 'зе',
       'ив', 'ка', 'ки', 'ко', 'кр', 'ла', 'ле', 'ли', 'лу', 'лю',
@@ -187,15 +316,13 @@ export class ScraperService implements OnModuleDestroy {
 
     for (const q of queries) {
       try {
+        await this.throttle();
+        const config = this.getAxiosConfig();
+        config.headers = { ...config.headers, 'X-Requested-With': 'XMLHttpRequest' };
+
         const { data } = await axios.get(
           `${this.baseUrl}/en/ajax/autocomplete`,
-          {
-            params: { q },
-            headers: {
-              ...this.headers,
-              'X-Requested-With': 'XMLHttpRequest',
-            },
-          },
+          { ...config, params: { q } },
         );
 
         if (data?.suggestions) {
@@ -212,10 +339,7 @@ export class ScraperService implements OnModuleDestroy {
             }
           }
         }
-
-        await new Promise((r) => setTimeout(r, 1500));
       } catch {
-        // Skip failed queries — might be rate limited
         await new Promise((r) => setTimeout(r, 5000));
       }
     }
@@ -224,16 +348,31 @@ export class ScraperService implements OnModuleDestroy {
   }
 
   async getSong(id: string): Promise<Song> {
-    const { data: searchData } = await axios.get(
-      `${this.baseUrl}/en/ajax/autocomplete`,
-      {
+    await this.throttle();
+
+    const config = this.getAxiosConfig();
+    config.headers = { ...config.headers, 'X-Requested-With': 'XMLHttpRequest' };
+
+    let searchData: any;
+    try {
+      const resp = await axios.get(`${this.baseUrl}/en/ajax/autocomplete`, {
+        ...config,
         params: { q: id },
-        headers: {
-          ...this.headers,
-          'X-Requested-With': 'XMLHttpRequest',
-        },
-      },
-    );
+      });
+      if (resp.status === 429) {
+        this.handle429();
+        throw new RateLimitError();
+      }
+      this.resetBackoff();
+      searchData = resp.data;
+    } catch (err) {
+      if (err instanceof RateLimitError) throw err;
+      if (err?.response?.status === 429) {
+        this.handle429();
+        throw new RateLimitError();
+      }
+      throw err;
+    }
 
     let songUrl = '';
 
@@ -248,19 +387,6 @@ export class ScraperService implements OnModuleDestroy {
     }
 
     if (!songUrl) {
-      const { data: mainData } = await axios.get(this.baseUrl, {
-        headers: this.headers,
-      });
-      const $main = load(mainData);
-      $main(`a[href*="/${id}-"]`).each((_, el) => {
-        const href = $main(el).attr('href') || '';
-        if (href.endsWith('.html')) {
-          songUrl = href.startsWith('http') ? href : `${this.baseUrl}${href}`;
-        }
-      });
-    }
-
-    if (!songUrl) {
       throw new Error(`Song with id ${id} not found`);
     }
 
@@ -268,6 +394,8 @@ export class ScraperService implements OnModuleDestroy {
   }
 
   async getSongByUrl(url: string): Promise<Song> {
+    await this.throttle();
+
     const fullUrl = url.startsWith('http') ? url : `${this.baseUrl}${url}`;
 
     const idMatch = url.match(/\/(\d+)-/);
@@ -279,17 +407,31 @@ export class ScraperService implements OnModuleDestroy {
 
     try {
       await page.setUserAgent(this.headers['User-Agent']);
-      await page.goto(fullUrl, { waitUntil: 'networkidle2', timeout: 15000 });
+      const response = await page.goto(fullUrl, { waitUntil: 'networkidle2', timeout: 15000 });
+
+      // Check for rate limiting
+      if (response && response.status() === 429) {
+        this.handle429();
+        throw new RateLimitError();
+      }
+      this.resetBackoff();
 
       // Wait for JS to decode chords
       await page.waitForSelector('.b-accord__symbol', { timeout: 5000 }).catch(() => {});
       await new Promise((r) => setTimeout(r, 1500));
 
-      // Extract title and artist
-      const pageTitle = await page.$eval('h1', (el) => el.textContent?.trim() || '');
+      // Extract title and artist from page
+      const pageTitle = await page.$eval('h1', (el) => el.textContent?.trim() || '').catch(() => '');
       const parts = pageTitle.split(' - ');
-      const artist = parts.length > 1 ? parts[0].trim() : '';
-      const title = parts.length > 1 ? parts.slice(1).join(' - ').trim() : pageTitle;
+      let artist = parts.length > 1 ? parts[0].trim() : '';
+      let title = parts.length > 1 ? parts.slice(1).join(' - ').trim() : pageTitle;
+
+      // Try to get real Cyrillic name from autocomplete API
+      const realName = await this.fetchRealName(id);
+      if (realName) {
+        artist = realName.artist;
+        title = realName.title;
+      }
 
       // Extract all content from rendered DOM
       const rawData = await page.evaluate(() => {
@@ -351,6 +493,10 @@ export class ScraperService implements OnModuleDestroy {
 
         return elements;
       });
+
+      if (rawData.length === 0) {
+        this.logger.warn(`Empty content extracted from ${fullUrl}`);
+      }
 
       // Build sections from extracted data
       const sections: SongSection[] = [];
@@ -423,13 +569,13 @@ export class ScraperService implements OnModuleDestroy {
     if (root === 'H') root = 'B';
     else if (root === 'Hb') root = 'Bb';
 
-    let bassNote = match[5] || undefined;
+    let bassNote = match[6] || undefined;
     if (bassNote === 'H') bassNote = 'B';
     else if (bassNote === 'Hb') bassNote = 'Bb';
 
     return {
       root,
-      quality: (match[2] || '') + (match[3] || ''),
+      quality: (match[2] || '') + (match[3] || '') + (match[4] || ''),
       bassNote,
       position: 0,
     };

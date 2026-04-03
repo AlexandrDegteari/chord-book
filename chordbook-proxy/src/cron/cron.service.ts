@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Song } from '../database/song.model';
-import { ScraperService } from '../scraper/scraper.service';
+import { ScraperService, RateLimitError } from '../scraper/scraper.service';
 
 @Injectable()
 export class CronService {
@@ -53,15 +53,28 @@ export class CronService {
 
             try {
               const fullSong = await this.scraperService.getSongByUrl(song.url);
+              const hasSections = Array.isArray(fullSong.sections) && fullSong.sections.length > 0;
+
+              // Skip saving if we got empty content (likely rate limited)
+              if (!hasSections) {
+                failed++;
+                continue;
+              }
+
+              const hasCyrillic = (s: string) => /[а-яёА-ЯЁіїєґІЇЄҐ]/.test(s);
 
               if (exists) {
-                await exists.update({
-                  title: fullSong.title,
-                  artist: fullSong.artist,
+                const updateData: any = {
                   url: fullSong.url,
                   sections: fullSong.sections,
                   scrapedAt: new Date(),
-                });
+                };
+                // Only update names if new names are Cyrillic or existing aren't
+                if (hasCyrillic(fullSong.title) || !hasCyrillic(exists.title)) {
+                  updateData.title = fullSong.title;
+                  updateData.artist = fullSong.artist;
+                }
+                await exists.update(updateData);
               } else {
                 await this.songModel.create({
                   externalId: fullSong.id,
@@ -82,7 +95,12 @@ export class CronService {
               }
             } catch (err) {
               failed++;
-              this.logger.warn(`Failed: ${song.url} - ${err.message}`);
+              if (err instanceof RateLimitError) {
+                this.logger.warn(`Rate limited — pausing for 60s`);
+                await new Promise((r) => setTimeout(r, 60000));
+              } else {
+                this.logger.warn(`Failed: ${song.url} - ${err.message}`);
+              }
             }
 
             await new Promise((r) => setTimeout(r, 3000));

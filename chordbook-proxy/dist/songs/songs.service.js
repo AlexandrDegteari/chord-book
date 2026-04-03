@@ -122,11 +122,18 @@ let SongsService = SongsService_1 = class SongsService {
         }
         try {
             const scraped = await this.scraperService.getSong(id);
-            await this.upsertFromScraped(scraped);
+            if (scraped.sections && scraped.sections.length > 0) {
+                await this.upsertFromScraped(scraped);
+            }
             return scraped;
         }
         catch (err) {
-            this.logger.warn(`Scraper getSong failed: ${err.message}`);
+            if (err instanceof scraper_service_1.RateLimitError) {
+                this.logger.warn('Scraper rate limited (429) for getSong');
+            }
+            else {
+                this.logger.warn(`Scraper getSong failed: ${err.message}`);
+            }
             const fallback = dbSong || dbSongById;
             if (fallback)
                 return this.formatSong(fallback);
@@ -152,11 +159,18 @@ let SongsService = SongsService_1 = class SongsService {
         }
         try {
             const scraped = await this.scraperService.getSongByUrl(url);
-            await this.upsertFromScraped(scraped);
+            if (scraped.sections && scraped.sections.length > 0) {
+                await this.upsertFromScraped(scraped);
+            }
             return scraped;
         }
         catch (err) {
-            this.logger.warn(`Scraper getSongByUrl failed: ${err.message}`);
+            if (err instanceof scraper_service_1.RateLimitError) {
+                this.logger.warn('Scraper rate limited (429) for getSongByUrl');
+            }
+            else {
+                this.logger.warn(`Scraper getSongByUrl failed: ${err.message}`);
+            }
             const fallback = dbSong || dbSongByExtId;
             if (fallback)
                 return this.formatSong(fallback);
@@ -169,13 +183,20 @@ let SongsService = SongsService_1 = class SongsService {
                 where: { externalId: scraped.id },
             });
             if (existing) {
-                await existing.update({
-                    title: scraped.title,
-                    artist: scraped.artist,
+                const updateData = {
                     url: scraped.url,
-                    sections: scraped.sections,
                     scrapedAt: new Date(),
-                });
+                };
+                const scrapedHasSections = Array.isArray(scraped.sections) && scraped.sections.length > 0;
+                if (scrapedHasSections) {
+                    updateData.sections = scraped.sections;
+                }
+                const hasCyrillic = (s) => /[а-яёА-ЯЁіїєґІЇЄҐ]/.test(s);
+                if (hasCyrillic(scraped.title) || !hasCyrillic(existing.title)) {
+                    updateData.title = scraped.title;
+                    updateData.artist = scraped.artist;
+                }
+                await existing.update(updateData);
                 return existing;
             }
             return await this.songModel.create({

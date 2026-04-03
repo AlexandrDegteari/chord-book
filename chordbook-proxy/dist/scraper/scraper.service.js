@@ -41,26 +41,70 @@ var __importStar = (this && this.__importStar) || (function () {
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
+var ScraperService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ScraperService = void 0;
+exports.ScraperService = exports.RateLimitError = void 0;
 const common_1 = require("@nestjs/common");
 const axios_1 = __importDefault(require("axios"));
 const cheerio_1 = require("cheerio");
 const puppeteer = __importStar(require("puppeteer"));
-let ScraperService = class ScraperService {
+const https_proxy_agent_1 = require("https-proxy-agent");
+class RateLimitError extends Error {
+    constructor(message = 'Rate limited by mychords.net (429)') {
+        super(message);
+        this.name = 'RateLimitError';
+    }
+}
+exports.RateLimitError = RateLimitError;
+let ScraperService = ScraperService_1 = class ScraperService {
+    logger = new common_1.Logger(ScraperService_1.name);
     baseUrl = 'https://mychords.net';
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept-Language': 'en-US,en;q=0.9,ru;q=0.8',
     };
-    chordRegex = /^([A-GH][#b]?)(m(?:aj)?|dim|aug|sus[24]?|add)?(\d+)?(\/([A-GH][#b]?))?$/;
+    chordRegex = /^([A-GH][#b]?)(m(?:aj)?|dim|aug|sus[24]?|add)?(\d+)?(sus[24])?(\/([A-GH][#b]?))?$/;
     browser = null;
+    lastRequestTime = 0;
+    minRequestInterval = 3000;
+    backoffUntil = 0;
+    backoffDuration = 30000;
+    proxyUrl = process.env.SCRAPER_PROXY_URL || '';
+    getAxiosConfig() {
+        const config = { headers: { ...this.headers } };
+        if (this.proxyUrl) {
+            config.httpsAgent = new https_proxy_agent_1.HttpsProxyAgent(this.proxyUrl);
+        }
+        return config;
+    }
+    async throttle() {
+        const now = Date.now();
+        if (now < this.backoffUntil) {
+            const wait = this.backoffUntil - now;
+            this.logger.warn(`Rate limit backoff: waiting ${Math.round(wait / 1000)}s`);
+            await new Promise((r) => setTimeout(r, wait));
+        }
+        const elapsed = Date.now() - this.lastRequestTime;
+        if (elapsed < this.minRequestInterval) {
+            await new Promise((r) => setTimeout(r, this.minRequestInterval - elapsed));
+        }
+        this.lastRequestTime = Date.now();
+    }
+    handle429() {
+        this.backoffUntil = Date.now() + this.backoffDuration;
+        this.logger.warn(`Got 429 — backing off for ${this.backoffDuration / 1000}s`);
+        this.backoffDuration = Math.min(this.backoffDuration * 2, 300000);
+    }
+    resetBackoff() {
+        this.backoffDuration = 30000;
+    }
     async getBrowser() {
         if (!this.browser || !this.browser.connected) {
-            this.browser = await puppeteer.launch({
-                headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox'],
-            });
+            const args = ['--no-sandbox', '--disable-setuid-sandbox'];
+            if (this.proxyUrl) {
+                args.push(`--proxy-server=${this.proxyUrl}`);
+            }
+            this.browser = await puppeteer.launch({ headless: true, args });
         }
         return this.browser;
     }
@@ -71,13 +115,31 @@ let ScraperService = class ScraperService {
         }
     }
     async search(query) {
-        const { data } = await axios_1.default.get(`${this.baseUrl}/en/ajax/autocomplete`, {
-            params: { q: query },
-            headers: {
-                ...this.headers,
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        });
+        await this.throttle();
+        const config = this.getAxiosConfig();
+        config.headers = { ...config.headers, 'X-Requested-With': 'XMLHttpRequest' };
+        let data;
+        try {
+            const resp = await axios_1.default.get(`${this.baseUrl}/en/ajax/autocomplete`, {
+                ...config,
+                params: { q: query },
+            });
+            if (resp.status === 429) {
+                this.handle429();
+                throw new RateLimitError();
+            }
+            this.resetBackoff();
+            data = resp.data;
+        }
+        catch (err) {
+            if (err instanceof RateLimitError)
+                throw err;
+            if (err?.response?.status === 429) {
+                this.handle429();
+                throw new RateLimitError();
+            }
+            throw err;
+        }
         const results = [];
         if (data?.suggestions) {
             for (const suggestion of data.suggestions) {
@@ -111,8 +173,59 @@ let ScraperService = class ScraperService {
         }
         return results;
     }
+    async fetchRealName(externalId) {
+        try {
+            await this.throttle();
+            const config = this.getAxiosConfig();
+            config.headers = { ...config.headers, 'X-Requested-With': 'XMLHttpRequest' };
+            const resp = await axios_1.default.get(`${this.baseUrl}/en/ajax/autocomplete`, {
+                ...config,
+                params: { q: externalId },
+            });
+            if (resp.status === 429 || resp.data?.suggestions === undefined) {
+                return null;
+            }
+            for (const suggestion of resp.data.suggestions || []) {
+                const url = suggestion.data?.url || '';
+                const group = suggestion.data?.group || '';
+                const value = suggestion.value || '';
+                if (group === 'Songs' && url.includes(`/${externalId}-`)) {
+                    const parts = value.split(' - ');
+                    if (parts.length > 1) {
+                        return {
+                            artist: parts[0].trim(),
+                            title: parts.slice(1).join(' - ').trim(),
+                        };
+                    }
+                }
+            }
+        }
+        catch {
+        }
+        return null;
+    }
     async getArtistSongs(artistUrl, artistName) {
-        const { data } = await axios_1.default.get(artistUrl, { headers: this.headers });
+        await this.throttle();
+        const config = this.getAxiosConfig();
+        let data;
+        try {
+            const resp = await axios_1.default.get(artistUrl, config);
+            if (resp.status === 429) {
+                this.handle429();
+                throw new RateLimitError();
+            }
+            this.resetBackoff();
+            data = resp.data;
+        }
+        catch (err) {
+            if (err instanceof RateLimitError)
+                throw err;
+            if (err?.response?.status === 429) {
+                this.handle429();
+                throw new RateLimitError();
+            }
+            throw err;
+        }
         const $ = (0, cheerio_1.load)(data);
         const results = [];
         $('.b-listing__item__link').each((_, el) => {
@@ -165,13 +278,10 @@ let ScraperService = class ScraperService {
         ];
         for (const q of queries) {
             try {
-                const { data } = await axios_1.default.get(`${this.baseUrl}/en/ajax/autocomplete`, {
-                    params: { q },
-                    headers: {
-                        ...this.headers,
-                        'X-Requested-With': 'XMLHttpRequest',
-                    },
-                });
+                await this.throttle();
+                const config = this.getAxiosConfig();
+                config.headers = { ...config.headers, 'X-Requested-With': 'XMLHttpRequest' };
+                const { data } = await axios_1.default.get(`${this.baseUrl}/en/ajax/autocomplete`, { ...config, params: { q } });
                 if (data?.suggestions) {
                     for (const suggestion of data.suggestions) {
                         const group = suggestion.data?.group || '';
@@ -185,7 +295,6 @@ let ScraperService = class ScraperService {
                         }
                     }
                 }
-                await new Promise((r) => setTimeout(r, 1500));
             }
             catch {
                 await new Promise((r) => setTimeout(r, 5000));
@@ -194,13 +303,31 @@ let ScraperService = class ScraperService {
         return Array.from(artistMap.values());
     }
     async getSong(id) {
-        const { data: searchData } = await axios_1.default.get(`${this.baseUrl}/en/ajax/autocomplete`, {
-            params: { q: id },
-            headers: {
-                ...this.headers,
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        });
+        await this.throttle();
+        const config = this.getAxiosConfig();
+        config.headers = { ...config.headers, 'X-Requested-With': 'XMLHttpRequest' };
+        let searchData;
+        try {
+            const resp = await axios_1.default.get(`${this.baseUrl}/en/ajax/autocomplete`, {
+                ...config,
+                params: { q: id },
+            });
+            if (resp.status === 429) {
+                this.handle429();
+                throw new RateLimitError();
+            }
+            this.resetBackoff();
+            searchData = resp.data;
+        }
+        catch (err) {
+            if (err instanceof RateLimitError)
+                throw err;
+            if (err?.response?.status === 429) {
+                this.handle429();
+                throw new RateLimitError();
+            }
+            throw err;
+        }
         let songUrl = '';
         if (searchData?.suggestions) {
             for (const suggestion of searchData.suggestions) {
@@ -212,23 +339,12 @@ let ScraperService = class ScraperService {
             }
         }
         if (!songUrl) {
-            const { data: mainData } = await axios_1.default.get(this.baseUrl, {
-                headers: this.headers,
-            });
-            const $main = (0, cheerio_1.load)(mainData);
-            $main(`a[href*="/${id}-"]`).each((_, el) => {
-                const href = $main(el).attr('href') || '';
-                if (href.endsWith('.html')) {
-                    songUrl = href.startsWith('http') ? href : `${this.baseUrl}${href}`;
-                }
-            });
-        }
-        if (!songUrl) {
             throw new Error(`Song with id ${id} not found`);
         }
         return this.getSongByUrl(songUrl);
     }
     async getSongByUrl(url) {
+        await this.throttle();
         const fullUrl = url.startsWith('http') ? url : `${this.baseUrl}${url}`;
         const idMatch = url.match(/\/(\d+)-/);
         const id = idMatch ? idMatch[1] : '0';
@@ -236,13 +352,23 @@ let ScraperService = class ScraperService {
         const page = await browser.newPage();
         try {
             await page.setUserAgent(this.headers['User-Agent']);
-            await page.goto(fullUrl, { waitUntil: 'networkidle2', timeout: 15000 });
+            const response = await page.goto(fullUrl, { waitUntil: 'networkidle2', timeout: 15000 });
+            if (response && response.status() === 429) {
+                this.handle429();
+                throw new RateLimitError();
+            }
+            this.resetBackoff();
             await page.waitForSelector('.b-accord__symbol', { timeout: 5000 }).catch(() => { });
             await new Promise((r) => setTimeout(r, 1500));
-            const pageTitle = await page.$eval('h1', (el) => el.textContent?.trim() || '');
+            const pageTitle = await page.$eval('h1', (el) => el.textContent?.trim() || '').catch(() => '');
             const parts = pageTitle.split(' - ');
-            const artist = parts.length > 1 ? parts[0].trim() : '';
-            const title = parts.length > 1 ? parts.slice(1).join(' - ').trim() : pageTitle;
+            let artist = parts.length > 1 ? parts[0].trim() : '';
+            let title = parts.length > 1 ? parts.slice(1).join(' - ').trim() : pageTitle;
+            const realName = await this.fetchRealName(id);
+            if (realName) {
+                artist = realName.artist;
+                title = realName.title;
+            }
             const rawData = await page.evaluate(() => {
                 const content = document.querySelector('.w-words__text');
                 if (!content)
@@ -289,6 +415,9 @@ let ScraperService = class ScraperService {
                 });
                 return elements;
             });
+            if (rawData.length === 0) {
+                this.logger.warn(`Empty content extracted from ${fullUrl}`);
+            }
             const sections = [];
             let currentSection = { label: '', lines: [] };
             for (const el of rawData) {
@@ -354,21 +483,21 @@ let ScraperService = class ScraperService {
             root = 'B';
         else if (root === 'Hb')
             root = 'Bb';
-        let bassNote = match[5] || undefined;
+        let bassNote = match[6] || undefined;
         if (bassNote === 'H')
             bassNote = 'B';
         else if (bassNote === 'Hb')
             bassNote = 'Bb';
         return {
             root,
-            quality: (match[2] || '') + (match[3] || ''),
+            quality: (match[2] || '') + (match[3] || '') + (match[4] || ''),
             bassNote,
             position: 0,
         };
     }
 };
 exports.ScraperService = ScraperService;
-exports.ScraperService = ScraperService = __decorate([
+exports.ScraperService = ScraperService = ScraperService_1 = __decorate([
     (0, common_1.Injectable)()
 ], ScraperService);
 //# sourceMappingURL=scraper.service.js.map

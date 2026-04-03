@@ -59,14 +59,23 @@ let CronService = CronService_1 = class CronService {
                         }
                         try {
                             const fullSong = await this.scraperService.getSongByUrl(song.url);
+                            const hasSections = Array.isArray(fullSong.sections) && fullSong.sections.length > 0;
+                            if (!hasSections) {
+                                failed++;
+                                continue;
+                            }
+                            const hasCyrillic = (s) => /[а-яёА-ЯЁіїєґІЇЄҐ]/.test(s);
                             if (exists) {
-                                await exists.update({
-                                    title: fullSong.title,
-                                    artist: fullSong.artist,
+                                const updateData = {
                                     url: fullSong.url,
                                     sections: fullSong.sections,
                                     scrapedAt: new Date(),
-                                });
+                                };
+                                if (hasCyrillic(fullSong.title) || !hasCyrillic(exists.title)) {
+                                    updateData.title = fullSong.title;
+                                    updateData.artist = fullSong.artist;
+                                }
+                                await exists.update(updateData);
                             }
                             else {
                                 await this.songModel.create({
@@ -87,7 +96,13 @@ let CronService = CronService_1 = class CronService {
                         }
                         catch (err) {
                             failed++;
-                            this.logger.warn(`Failed: ${song.url} - ${err.message}`);
+                            if (err instanceof scraper_service_1.RateLimitError) {
+                                this.logger.warn(`Rate limited — pausing for 60s`);
+                                await new Promise((r) => setTimeout(r, 60000));
+                            }
+                            else {
+                                this.logger.warn(`Failed: ${song.url} - ${err.message}`);
+                            }
                         }
                         await new Promise((r) => setTimeout(r, 3000));
                     }

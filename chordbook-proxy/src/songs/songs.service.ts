@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Op } from 'sequelize';
 import { Song } from '../database/song.model';
-import { ScraperService, Song as ScrapedSong } from '../scraper/scraper.service';
+import { ScraperService, Song as ScrapedSong, RateLimitError } from '../scraper/scraper.service';
 
 @Injectable()
 export class SongsService {
@@ -139,10 +139,17 @@ export class SongsService {
     // Try scraper, but don't crash if it fails
     try {
       const scraped = await this.scraperService.getSong(id);
-      await this.upsertFromScraped(scraped);
+      // Only persist if we actually got content
+      if (scraped.sections && scraped.sections.length > 0) {
+        await this.upsertFromScraped(scraped);
+      }
       return scraped;
     } catch (err) {
-      this.logger.warn(`Scraper getSong failed: ${err.message}`);
+      if (err instanceof RateLimitError) {
+        this.logger.warn('Scraper rate limited (429) for getSong');
+      } else {
+        this.logger.warn(`Scraper getSong failed: ${err.message}`);
+      }
       // Return DB song even without sections (better than nothing)
       const fallback = dbSong || dbSongById;
       if (fallback) return this.formatSong(fallback);
@@ -175,10 +182,17 @@ export class SongsService {
     // Try scraper, but don't crash if it fails
     try {
       const scraped = await this.scraperService.getSongByUrl(url);
-      await this.upsertFromScraped(scraped);
+      // Only persist if we actually got content
+      if (scraped.sections && scraped.sections.length > 0) {
+        await this.upsertFromScraped(scraped);
+      }
       return scraped;
     } catch (err) {
-      this.logger.warn(`Scraper getSongByUrl failed: ${err.message}`);
+      if (err instanceof RateLimitError) {
+        this.logger.warn('Scraper rate limited (429) for getSongByUrl');
+      } else {
+        this.logger.warn(`Scraper getSongByUrl failed: ${err.message}`);
+      }
       const fallback = dbSong || dbSongByExtId;
       if (fallback) return this.formatSong(fallback);
       throw err;
@@ -192,13 +206,26 @@ export class SongsService {
       });
 
       if (existing) {
-        await existing.update({
-          title: scraped.title,
-          artist: scraped.artist,
+        const updateData: any = {
           url: scraped.url,
-          sections: scraped.sections,
           scrapedAt: new Date(),
-        });
+        };
+
+        // Only update sections if scraped data has content
+        // Never overwrite non-empty sections with empty ones
+        const scrapedHasSections = Array.isArray(scraped.sections) && scraped.sections.length > 0;
+        if (scrapedHasSections) {
+          updateData.sections = scraped.sections;
+        }
+
+        // Only update names if scraped names contain Cyrillic or existing names don't
+        const hasCyrillic = (s: string) => /[а-яёА-ЯЁіїєґІЇЄҐ]/.test(s);
+        if (hasCyrillic(scraped.title) || !hasCyrillic(existing.title)) {
+          updateData.title = scraped.title;
+          updateData.artist = scraped.artist;
+        }
+
+        await existing.update(updateData);
         return existing;
       }
 
