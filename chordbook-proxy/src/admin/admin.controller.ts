@@ -284,6 +284,41 @@ export class AdminController {
     return { saved: body.songs.length, path: filePath };
   }
 
+  @Post('cleanup-empty-songs')
+  async cleanupEmptySongs() {
+    const sequelize = this.songModel.sequelize!;
+    const emptyCond = "(sections IS NULL OR sections::text = '[]' OR sections::text = 'null')";
+
+    // Count first
+    const [[{ count }]] = await sequelize.query(
+      `SELECT COUNT(*) as count FROM songs WHERE ${emptyCond}`,
+    ) as any;
+
+    if (parseInt(count) === 0) {
+      return { deleted: 0, playlistSongsRemoved: 0, userSongsUnlinked: 0 };
+    }
+
+    // Remove from playlists
+    const [, psResult] = await sequelize.query(
+      `DELETE FROM playlist_songs WHERE "songId" IN (SELECT id FROM songs WHERE ${emptyCond})`,
+    );
+    const playlistSongsRemoved = (psResult as any)?.rowCount || 0;
+
+    // Unlink user songs
+    const [, usResult] = await sequelize.query(
+      `UPDATE user_songs SET "originalSongId" = NULL WHERE "originalSongId" IN (SELECT id FROM songs WHERE ${emptyCond})`,
+    );
+    const userSongsUnlinked = (usResult as any)?.rowCount || 0;
+
+    // Delete songs
+    const [, delResult] = await sequelize.query(
+      `DELETE FROM songs WHERE ${emptyCond}`,
+    );
+    const deleted = (delResult as any)?.rowCount || 0;
+
+    return { deleted, playlistSongsRemoved, userSongsUnlinked };
+  }
+
   @Post('bulk-update-names')
   async bulkUpdateNames(@Body() body: { songs: Array<{ id: string; title: string; artist: string }> }) {
     if (!body.songs || !Array.isArray(body.songs)) {

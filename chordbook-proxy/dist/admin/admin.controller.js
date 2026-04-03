@@ -230,6 +230,21 @@ let AdminController = class AdminController {
         fs.writeFileSync(filePath, JSON.stringify(body.songs));
         return { saved: body.songs.length, path: filePath };
     }
+    async cleanupEmptySongs() {
+        const sequelize = this.songModel.sequelize;
+        const emptyCond = "(sections IS NULL OR sections::text = '[]' OR sections::text = 'null')";
+        const [[{ count }]] = await sequelize.query(`SELECT COUNT(*) as count FROM songs WHERE ${emptyCond}`);
+        if (parseInt(count) === 0) {
+            return { deleted: 0, playlistSongsRemoved: 0, userSongsUnlinked: 0 };
+        }
+        const [, psResult] = await sequelize.query(`DELETE FROM playlist_songs WHERE "songId" IN (SELECT id FROM songs WHERE ${emptyCond})`);
+        const playlistSongsRemoved = psResult?.rowCount || 0;
+        const [, usResult] = await sequelize.query(`UPDATE user_songs SET "originalSongId" = NULL WHERE "originalSongId" IN (SELECT id FROM songs WHERE ${emptyCond})`);
+        const userSongsUnlinked = usResult?.rowCount || 0;
+        const [, delResult] = await sequelize.query(`DELETE FROM songs WHERE ${emptyCond}`);
+        const deleted = delResult?.rowCount || 0;
+        return { deleted, playlistSongsRemoved, userSongsUnlinked };
+    }
     async bulkUpdateNames(body) {
         if (!body.songs || !Array.isArray(body.songs)) {
             return { error: 'songs array required' };
@@ -397,6 +412,12 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "saveNamesFile", null);
+__decorate([
+    (0, common_1.Post)('cleanup-empty-songs'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "cleanupEmptySongs", null);
 __decorate([
     (0, common_1.Post)('bulk-update-names'),
     __param(0, (0, common_1.Body)()),
