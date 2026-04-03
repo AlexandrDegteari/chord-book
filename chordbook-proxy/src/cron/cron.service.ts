@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { Op, Sequelize } from 'sequelize';
+import { Sequelize } from 'sequelize';
 import { Song } from '../database/song.model';
 import { ScraperService, RateLimitError } from '../scraper/scraper.service';
 
@@ -151,13 +151,11 @@ export class CronService {
 
     try {
       // Build where clause
-      const emptySectionsCondition = "sections IS NULL OR sections::text = '[]' OR sections::text = 'null'";
-      const whereClause = artistFilter
-        ? { [Op.and]: [
-            Sequelize.literal(emptySectionsCondition),
-            { artist: { [Op.iLike]: `%${artistFilter}%` } },
-          ] }
-        : Sequelize.literal(emptySectionsCondition);
+      const emptySectionsCondition = "(sections IS NULL OR sections::text = '[]' OR sections::text = 'null')";
+      const artistCondition = artistFilter
+        ? ` AND artist ILIKE '%${artistFilter.replace(/'/g, "''")}%'`
+        : '';
+      const whereClause = Sequelize.literal(emptySectionsCondition + artistCondition);
 
       // Count total songs needing backfill
       const totalNeeding = await this.songModel.count({ where: whereClause as any });
@@ -203,8 +201,10 @@ export class CronService {
               }
               await song.update(updateData);
               this.backfillProgress.updated++;
+              this.logger.log(`[${processed + 1}] OK: ${scraped.artist} - ${scraped.title} (${scraped.sections.length} sections)`);
             } else {
               this.backfillProgress.failed++;
+              this.logger.warn(`[${processed + 1}] EMPTY: ${song.url}`);
             }
           } catch (err) {
             this.backfillProgress.failed++;

@@ -143,13 +143,11 @@ let CronService = CronService_1 = class CronService {
         this.backfillProgress = { total: 0, processed: 0, updated: 0, failed: 0 };
         this.logger.log(`Starting backfill sections (limit=${limit}${artistFilter ? `, artist="${artistFilter}"` : ''})...`);
         try {
-            const emptySectionsCondition = "sections IS NULL OR sections::text = '[]' OR sections::text = 'null'";
-            const whereClause = artistFilter
-                ? { [sequelize_2.Op.and]: [
-                        sequelize_2.Sequelize.literal(emptySectionsCondition),
-                        { artist: { [sequelize_2.Op.iLike]: `%${artistFilter}%` } },
-                    ] }
-                : sequelize_2.Sequelize.literal(emptySectionsCondition);
+            const emptySectionsCondition = "(sections IS NULL OR sections::text = '[]' OR sections::text = 'null')";
+            const artistCondition = artistFilter
+                ? ` AND artist ILIKE '%${artistFilter.replace(/'/g, "''")}%'`
+                : '';
+            const whereClause = sequelize_2.Sequelize.literal(emptySectionsCondition + artistCondition);
             const totalNeeding = await this.songModel.count({ where: whereClause });
             this.backfillProgress.total = Math.min(totalNeeding, limit);
             this.logger.log(`Found ${totalNeeding} songs without sections, will process ${this.backfillProgress.total}`);
@@ -187,9 +185,11 @@ let CronService = CronService_1 = class CronService {
                             }
                             await song.update(updateData);
                             this.backfillProgress.updated++;
+                            this.logger.log(`[${processed + 1}] OK: ${scraped.artist} - ${scraped.title} (${scraped.sections.length} sections)`);
                         }
                         else {
                             this.backfillProgress.failed++;
+                            this.logger.warn(`[${processed + 1}] EMPTY: ${song.url}`);
                         }
                     }
                     catch (err) {

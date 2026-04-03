@@ -108,11 +108,15 @@ export class ScraperService implements OnModuleDestroy {
 
   private async getBrowser(): Promise<puppeteer.Browser> {
     if (!this.browser || !this.browser.connected) {
-      const args = ['--no-sandbox', '--disable-setuid-sandbox'];
+      const args = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'];
       if (this.proxyUrl) {
         args.push(`--proxy-server=${this.proxyUrl}`);
       }
-      this.browser = await puppeteer.launch({ headless: true, args });
+      this.browser = await puppeteer.launch({
+        headless: true,
+        args,
+        executablePath: process.env.CHROME_PATH || undefined,
+      });
     }
     return this.browser;
   }
