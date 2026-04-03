@@ -7,7 +7,7 @@ class ChordService {
   static const _flats = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 
   static final _chordRegex = RegExp(
-    r'^([A-G][#b]?)(m(?:aj)?|dim|aug|sus[24]?|add)?(\d+)?(/([A-G][#b]?))?$',
+    r'^([A-G][#b]?)(m(?:aj)?|dim|aug|sus[24]?|add)?(\d+)?(sus[24])?(/([A-G][#b]?))?$',
   );
 
   static Chord? parseChord(String symbol) {
@@ -15,8 +15,8 @@ class ChordService {
     if (match == null) return null;
 
     final root = match.group(1)!;
-    final qualityPart = (match.group(2) ?? '') + (match.group(3) ?? '');
-    final bass = match.group(5);
+    final qualityPart = (match.group(2) ?? '') + (match.group(3) ?? '') + (match.group(4) ?? '');
+    final bass = match.group(6);
 
     return Chord(root: root, quality: qualityPart, bassNote: bass);
   }
