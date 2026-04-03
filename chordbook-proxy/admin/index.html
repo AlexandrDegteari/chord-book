@@ -162,7 +162,7 @@
               <template x-for="song in songs" :key="song.id">
                 <tr class="border-t border-gray-700 hover:bg-gray-750">
                   <td class="p-4"><a href="#" @click.prevent="songsSearch=song.artist; songsLetter=''; songsPage=1; loadSongs()" class="text-orange-400 hover:underline" x-text="song.artist"></a></td>
-                  <td class="p-4" x-text="song.title"></td>
+                  <td class="p-4"><a href="#" @click.prevent="viewSong(song)" class="text-blue-400 hover:underline cursor-pointer" x-text="song.title"></a></td>
                   <td class="p-4">
                     <span class="text-xs px-2 py-1 rounded-full" :class="song.source==='scraped' ? 'bg-blue-900 text-blue-300' : 'bg-purple-900 text-purple-300'" x-text="song.source"></span>
                   </td>
@@ -324,6 +324,34 @@
     </div>
   </div>
 
+  <!-- Song View Modal -->
+  <div x-show="viewingSong" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50" @click.self="viewingSong=null" @keydown.escape.window="viewingSong=null">
+    <div class="bg-gray-800 rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col">
+      <div class="flex justify-between items-center p-6 border-b border-gray-700">
+        <div>
+          <h3 class="text-lg font-semibold" x-text="viewingSong?.title"></h3>
+          <p class="text-gray-400" x-text="viewingSong?.artist"></p>
+        </div>
+        <button @click="viewingSong=null" class="text-gray-400 hover:text-white text-2xl leading-none">&times;</button>
+      </div>
+      <div class="p-6 overflow-y-auto">
+        <div x-show="loadingSong" class="text-center text-gray-500 py-8">Loading...</div>
+        <div x-show="!loadingSong && (!viewingSong?.sections || viewingSong?.sections?.length === 0)" class="text-center text-gray-500 py-8">No sections available</div>
+        <template x-for="section in (viewingSong?.sections || [])" :key="section.label">
+          <div class="mb-4">
+            <p x-show="section.label" class="text-orange-400 font-semibold text-sm mb-1" x-text="section.label"></p>
+            <template x-for="(line, i) in section.lines" :key="i">
+              <div class="mb-1">
+                <span x-show="line.chords && line.chords.length" class="text-blue-400 text-sm" x-text="line.chords?.map(c => c.root + (c.quality||'')).join('  ')"></span>
+                <p class="text-gray-300 text-sm" x-text="line.lyrics"></p>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
   <!-- Reject Modal -->
   <div x-show="showRejectModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
     <div class="bg-gray-800 p-6 rounded-xl w-96">
@@ -374,6 +402,8 @@ function adminApp() {
     showRejectModal: false,
     rejectReason: '',
     rejectingSongId: null,
+    viewingSong: null,
+    loadingSong: false,
 
     headers() {
       return { 'X-Admin-Token': this.token, 'Content-Type': 'application/json' };
@@ -502,6 +532,20 @@ function adminApp() {
       this.showRejectModal = false;
       await this.loadPending();
       await this.refreshStats();
+    },
+
+    async viewSong(song) {
+      this.loadingSong = true;
+      this.viewingSong = { title: song.title, artist: song.artist, sections: [] };
+      try {
+        const id = song.externalId || song.id;
+        const res = await fetch(`${API}/song/${id}`);
+        if (res.ok) {
+          const data = await res.json();
+          this.viewingSong = data;
+        }
+      } catch {}
+      this.loadingSong = false;
     },
 
     async runFullScrape() {
