@@ -538,7 +538,7 @@ function adminApp() {
       this.loadingSong = true;
       this.viewingSong = { title: song.title, artist: song.artist, sections: [] };
       try {
-        const res = await fetch(`${API}/admin/songs/${song.id}`, { headers: this.headers() });
+        const res = await fetch(`${API}/admin/song/${song.id}`, { headers: this.headers() });
         if (res.ok) {
           const data = await res.json();
           this.viewingSong = data;

@@ -71,7 +71,7 @@ export class AdminController {
     return this.devicesService.findAll();
   }
 
-  @Get('songs/:id')
+  @Get('song/:id')
   async getSongDetail(@Param('id') id: string) {
     return this.songModel.findByPk(id);
   }
