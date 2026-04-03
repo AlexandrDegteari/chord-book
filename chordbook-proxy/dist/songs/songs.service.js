@@ -40,46 +40,72 @@ let SongsService = SongsService_1 = class SongsService {
         return /[а-яё]/i.test(text);
     }
     async search(query) {
-        const searchConditions = [
-            { title: { [sequelize_2.Op.iLike]: `%${query}%` } },
-            { artist: { [sequelize_2.Op.iLike]: `%${query}%` } },
-        ];
-        if (this.isCyrillic(query)) {
-            const translit = this.transliterate(query);
-            searchConditions.push({ title: { [sequelize_2.Op.iLike]: `%${translit}%` } }, { artist: { [sequelize_2.Op.iLike]: `%${translit}%` } });
-        }
-        const dbResults = await this.songModel.findAll({
-            where: {
-                status: 'active',
-                [sequelize_2.Op.or]: searchConditions,
-            },
-            limit: 50,
-            order: [
-                [this.songModel.sequelize.literal(`CASE WHEN artist ILIKE '%${query.replace(/'/g, "''")}%' THEN 0 ELSE 1 END`), 'ASC'],
-                ['artist', 'ASC'],
-                ['title', 'ASC'],
-            ],
-        });
+        const dbResults = await this.searchDb(query);
         const formatted = dbResults.map((s) => ({
             id: s.externalId || s.id,
             title: s.title,
             artist: s.artist,
             url: s.url || '',
         }));
-        try {
-            const scraped = await this.scraperService.search(query);
-            this.saveSongsInBackground(scraped);
-            const dbIds = new Set(formatted.map((r) => r.id));
-            for (const s of scraped) {
-                if (!dbIds.has(s.id)) {
+        if (formatted.length === 0) {
+            try {
+                const scraped = await this.scraperService.search(query);
+                this.saveSongsInBackground(scraped);
+                for (const s of scraped) {
                     formatted.push(s);
                 }
             }
+            catch (err) {
+                this.logger.warn(`Scraper search failed: ${err.message}`);
+            }
         }
-        catch (err) {
-            this.logger.warn(`Scraper search failed (returning DB results only): ${err.message}`);
+        else {
+            this.scraperService.search(query)
+                .then(scraped => this.saveSongsInBackground(scraped))
+                .catch(() => { });
         }
         return formatted;
+    }
+    async searchDb(query) {
+        const words = query.trim().split(/\s+/).filter(w => w.length > 0);
+        const searchConditions = [];
+        searchConditions.push({ title: { [sequelize_2.Op.iLike]: `%${query}%` } }, { artist: { [sequelize_2.Op.iLike]: `%${query}%` } });
+        if (words.length > 1) {
+            const wordConditions = words.map(word => ({
+                [sequelize_2.Op.or]: [
+                    { title: { [sequelize_2.Op.iLike]: `%${word}%` } },
+                    { artist: { [sequelize_2.Op.iLike]: `%${word}%` } },
+                ],
+            }));
+            searchConditions.push({ [sequelize_2.Op.and]: wordConditions });
+        }
+        if (this.isCyrillic(query)) {
+            const translit = this.transliterate(query);
+            searchConditions.push({ title: { [sequelize_2.Op.iLike]: `%${translit}%` } }, { artist: { [sequelize_2.Op.iLike]: `%${translit}%` } });
+            const translitWords = translit.trim().split(/\s+/).filter(w => w.length > 0);
+            if (translitWords.length > 1) {
+                const wordConditions = translitWords.map(word => ({
+                    [sequelize_2.Op.or]: [
+                        { title: { [sequelize_2.Op.iLike]: `%${word}%` } },
+                        { artist: { [sequelize_2.Op.iLike]: `%${word}%` } },
+                    ],
+                }));
+                searchConditions.push({ [sequelize_2.Op.and]: wordConditions });
+            }
+        }
+        const escapedQuery = query.replace(/'/g, "''");
+        return this.songModel.findAll({
+            where: {
+                status: 'active',
+                [sequelize_2.Op.or]: searchConditions,
+            },
+            limit: 50,
+            order: [
+                [this.songModel.sequelize.literal(`CASE WHEN artist ILIKE '%${escapedQuery}%' THEN 0 ELSE 1 END`), 'ASC'],
+                ['artist', 'ASC'],
+                ['title', 'ASC'],
+            ],
+        });
     }
     async getSong(id) {
         const dbSong = await this.songModel.findOne({

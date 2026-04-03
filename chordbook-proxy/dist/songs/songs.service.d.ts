@@ -13,6 +13,7 @@ export declare class SongsService {
         artist: string;
         url: string;
     }[]>;
+    private searchDb;
     getSong(id: string): Promise<{
         id: string;
         title: string;
