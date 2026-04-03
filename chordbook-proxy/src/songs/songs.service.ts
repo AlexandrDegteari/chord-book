@@ -28,33 +28,8 @@ export class SongsService {
   }
 
   async search(query: string) {
-    // Build search conditions — include transliterated query for cyrillic input
-    const searchConditions: any[] = [
-      { title: { [Op.iLike]: `%${query}%` } },
-      { artist: { [Op.iLike]: `%${query}%` } },
-    ];
-
-    if (this.isCyrillic(query)) {
-      const translit = this.transliterate(query);
-      searchConditions.push(
-        { title: { [Op.iLike]: `%${translit}%` } },
-        { artist: { [Op.iLike]: `%${translit}%` } },
-      );
-    }
-
-    const dbResults = await this.songModel.findAll({
-      where: {
-        status: 'active',
-        [Op.or]: searchConditions,
-      },
-      limit: 50,
-      order: [
-        // Prioritize exact query match (cyrillic names first when searching in cyrillic)
-        [this.songModel.sequelize!.literal(`CASE WHEN artist ILIKE '%${query.replace(/'/g, "''")}%' THEN 0 ELSE 1 END`), 'ASC'],
-        ['artist', 'ASC'],
-        ['title', 'ASC'],
-      ],
-    });
+    // 1. Search our own DB first (fast autocomplete)
+    const dbResults = await this.searchDb(query);
 
     const formatted = dbResults.map((s) => ({
       id: s.externalId || s.id,
@@ -63,24 +38,83 @@ export class SongsService {
       url: s.url || '',
     }));
 
-    // Also try scraper in background to supplement results
-    // But never fail if scraper is down
-    try {
-      const scraped = await this.scraperService.search(query);
-      this.saveSongsInBackground(scraped);
+    // 2. Only fall back to scraper if DB returned no results
+    if (formatted.length === 0) {
+      try {
+        const scraped = await this.scraperService.search(query);
+        this.saveSongsInBackground(scraped);
 
-      // Merge: DB results first, then scraper results not already in DB
-      const dbIds = new Set(formatted.map((r) => r.id));
-      for (const s of scraped) {
-        if (!dbIds.has(s.id)) {
+        for (const s of scraped) {
           formatted.push(s);
         }
+      } catch (err) {
+        this.logger.warn(`Scraper search failed: ${err.message}`);
       }
-    } catch (err) {
-      this.logger.warn(`Scraper search failed (returning DB results only): ${err.message}`);
+    } else {
+      // DB had results — still save any new scraper results in background
+      // but don't block on it and don't add to response
+      this.scraperService.search(query)
+        .then(scraped => this.saveSongsInBackground(scraped))
+        .catch(() => {});
     }
 
     return formatted;
+  }
+
+  private async searchDb(query: string): Promise<Song[]> {
+    const words = query.trim().split(/\s+/).filter(w => w.length > 0);
+    const searchConditions: any[] = [];
+
+    // Single-string match against title and artist
+    searchConditions.push(
+      { title: { [Op.iLike]: `%${query}%` } },
+      { artist: { [Op.iLike]: `%${query}%` } },
+    );
+
+    // Multi-word: each word must match in title OR artist (cross-column)
+    if (words.length > 1) {
+      const wordConditions = words.map(word => ({
+        [Op.or]: [
+          { title: { [Op.iLike]: `%${word}%` } },
+          { artist: { [Op.iLike]: `%${word}%` } },
+        ],
+      }));
+      searchConditions.push({ [Op.and]: wordConditions });
+    }
+
+    // Cyrillic transliteration support
+    if (this.isCyrillic(query)) {
+      const translit = this.transliterate(query);
+      searchConditions.push(
+        { title: { [Op.iLike]: `%${translit}%` } },
+        { artist: { [Op.iLike]: `%${translit}%` } },
+      );
+
+      const translitWords = translit.trim().split(/\s+/).filter(w => w.length > 0);
+      if (translitWords.length > 1) {
+        const wordConditions = translitWords.map(word => ({
+          [Op.or]: [
+            { title: { [Op.iLike]: `%${word}%` } },
+            { artist: { [Op.iLike]: `%${word}%` } },
+          ],
+        }));
+        searchConditions.push({ [Op.and]: wordConditions });
+      }
+    }
+
+    const escapedQuery = query.replace(/'/g, "''");
+    return this.songModel.findAll({
+      where: {
+        status: 'active',
+        [Op.or]: searchConditions,
+      },
+      limit: 50,
+      order: [
+        [this.songModel.sequelize!.literal(`CASE WHEN artist ILIKE '%${escapedQuery}%' THEN 0 ELSE 1 END`), 'ASC'],
+        ['artist', 'ASC'],
+        ['title', 'ASC'],
+      ],
+    });
   }
 
   async getSong(id: string) {

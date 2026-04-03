@@ -12,6 +12,7 @@ class MainShell extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
@@ -26,6 +27,11 @@ class MainShell extends StatelessWidget {
             icon: const Icon(Icons.library_music_outlined),
             selectedIcon: const Icon(Icons.library_music),
             label: l10n.book,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.library_books_outlined),
+            selectedIcon: const Icon(Icons.library_books),
+            label: l10n.myLibrary,
           ),
           NavigationDestination(
             icon: const Icon(Icons.tune_outlined),

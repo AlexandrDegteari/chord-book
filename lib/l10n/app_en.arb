@@ -64,5 +64,51 @@
     "placeholders": {
       "error": {"type": "String"}
     }
+  },
+  "myLibrary": "My Library",
+  "playlists": "Playlists",
+  "mySongs": "My Songs",
+  "createPlaylist": "Create Playlist",
+  "createSong": "Create Song",
+  "editSong": "Edit Song",
+  "addToPlaylist": "Add to Playlist",
+  "createMyVersion": "Create My Version",
+  "playlistTitle": "Playlist Title",
+  "playlistDescription": "Description (optional)",
+  "songTitle": "Song Title",
+  "songArtist": "Artist",
+  "addSection": "Add Section",
+  "removeSection": "Remove Section",
+  "verse": "Verse",
+  "chorus": "Chorus",
+  "bridge": "Bridge",
+  "intro": "Intro",
+  "outro": "Outro",
+  "solo": "Solo",
+  "other": "Other",
+  "saveDraft": "Save Draft",
+  "submitForReview": "Submit for Review",
+  "draft": "Draft",
+  "submitted": "Submitted",
+  "approved": "Approved",
+  "rejected": "Rejected",
+  "noPlaylists": "No playlists yet",
+  "noMySongs": "No songs yet",
+  "deletePlaylist": "Delete Playlist",
+  "deleteSong": "Delete Song",
+  "confirmDelete": "Are you sure you want to delete this?",
+  "emptyPlaylist": "This playlist is empty",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "create": "Create",
+  "save": "Save",
+  "addToFavorites": "Favorites",
+  "newPlaylist": "New Playlist",
+  "songContent": "Lyrics with chords like [Am]text [C]here",
+  "nSongs": "{count} songs",
+  "@nSongs": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
   }
 }

@@ -11,6 +11,7 @@ import '../providers/search_provider.dart';
 import '../providers/speech_provider.dart';
 import '../providers/theme_provider.dart';
 import '../widgets/song_card.dart';
+import '../widgets/add_to_playlist_sheet.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -75,7 +76,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.all(DesignTokens.spacingMd),
@@ -127,6 +130,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
+      ),
+    );
+  }
+
+  void _showPlaylistPicker(SearchResult song) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => AddToPlaylistSheet(song: song),
     );
   }
 
@@ -170,8 +182,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 return SongCard(
                   result: result,
                   isFavorite: isFav,
-                  onFavoriteToggle: () =>
-                      ref.read(favoritesProvider.notifier).toggle(result),
+                  onFavoriteToggle: () => _showPlaylistPicker(result),
                   onTap: () => _navigateToSong(result),
                 );
               },
@@ -201,12 +212,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       children: [
         if (favorites.isNotEmpty) ...[
           _sectionTitle(l10n.favorites, theme),
-          ...favorites.map((result) => SongCard(
-                result: result,
-                isFavorite: true,
-                onFavoriteToggle: () =>
-                    ref.read(favoritesProvider.notifier).toggle(result),
-                onTap: () => _navigateToSong(result),
+          ...favorites.map((result) => Dismissible(
+                key: ValueKey('fav_${result.id}'),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding:
+                      const EdgeInsets.only(right: DesignTokens.spacingMd),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: DesignTokens.spacingMd,
+                    vertical: DesignTokens.spacingXs,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius:
+                        BorderRadius.circular(DesignTokens.radiusMd),
+                  ),
+                  child: const Icon(Icons.close, color: Colors.white),
+                ),
+                onDismissed: (_) {
+                  ref.read(favoritesProvider.notifier).toggle(result);
+                },
+                child: SongCard(
+                  result: result,
+                  isFavorite: true,
+                  onFavoriteToggle: () => _showPlaylistPicker(result),
+                  onTap: () => _navigateToSong(result),
+                ),
               )),
           const SizedBox(height: DesignTokens.spacingSm),
         ],
@@ -237,8 +269,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: SongCard(
                 result: result,
                 isFavorite: isFav,
-                onFavoriteToggle: () =>
-                    ref.read(favoritesProvider.notifier).toggle(result),
+                onFavoriteToggle: () => _showPlaylistPicker(result),
                 onTap: () => _navigateToSong(result),
               ),
             );

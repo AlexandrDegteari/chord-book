@@ -163,4 +163,129 @@ class AppLocalizationsRo extends AppLocalizations {
   String failed(String error) {
     return 'Eroare: $error';
   }
+
+  @override
+  String get myLibrary => 'Biblioteca mea';
+
+  @override
+  String get playlists => 'Playlisturi';
+
+  @override
+  String get mySongs => 'Melodiile mele';
+
+  @override
+  String get createPlaylist => 'Creeaza playlist';
+
+  @override
+  String get createSong => 'Creeaza melodie';
+
+  @override
+  String get editSong => 'Editeaza melodia';
+
+  @override
+  String get addToPlaylist => 'Adauga in playlist';
+
+  @override
+  String get createMyVersion => 'Creeaza versiunea mea';
+
+  @override
+  String get playlistTitle => 'Titlu playlist';
+
+  @override
+  String get playlistDescription => 'Descriere (optional)';
+
+  @override
+  String get songTitle => 'Titlu melodie';
+
+  @override
+  String get songArtist => 'Artist';
+
+  @override
+  String get addSection => 'Adauga sectiune';
+
+  @override
+  String get removeSection => 'Sterge sectiune';
+
+  @override
+  String get verse => 'Strofa';
+
+  @override
+  String get chorus => 'Refren';
+
+  @override
+  String get bridge => 'Punte';
+
+  @override
+  String get intro => 'Intro';
+
+  @override
+  String get outro => 'Outro';
+
+  @override
+  String get solo => 'Solo';
+
+  @override
+  String get other => 'Altele';
+
+  @override
+  String get saveDraft => 'Salveaza ciorna';
+
+  @override
+  String get submitForReview => 'Trimite pentru verificare';
+
+  @override
+  String get draft => 'Ciorna';
+
+  @override
+  String get submitted => 'Trimis';
+
+  @override
+  String get approved => 'Aprobat';
+
+  @override
+  String get rejected => 'Respins';
+
+  @override
+  String get noPlaylists => 'Niciun playlist inca';
+
+  @override
+  String get noMySongs => 'Nicio melodie inca';
+
+  @override
+  String get deletePlaylist => 'Sterge playlist';
+
+  @override
+  String get deleteSong => 'Sterge melodia';
+
+  @override
+  String get confirmDelete => 'Sunteti sigur ca doriti sa stergeti?';
+
+  @override
+  String get emptyPlaylist => 'Acest playlist este gol';
+
+  @override
+  String get cancel => 'Anuleaza';
+
+  @override
+  String get delete => 'Sterge';
+
+  @override
+  String get create => 'Creeaza';
+
+  @override
+  String get save => 'Salveaza';
+
+  @override
+  String get addToFavorites => 'Favorite';
+
+  @override
+  String get newPlaylist => 'Playlist nou';
+
+  @override
+  String get songContent => 'Versuri cu acorduri: [Am]text [C]aici';
+
+  @override
+  String nSongs(int count) {
+    return '$count melodii';
+  }
 }

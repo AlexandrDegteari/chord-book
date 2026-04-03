@@ -5,6 +5,9 @@ import '../screens/song_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/metronome_screen.dart';
 import '../screens/tuner_screen.dart';
+import '../screens/library_screen.dart';
+import '../screens/playlist_detail_screen.dart';
+import '../screens/song_editor_screen.dart';
 import '../widgets/main_shell.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -26,7 +29,16 @@ final appRouter = GoRouter(
             ),
           ],
         ),
-        // Tab 1: Tuner
+        // Tab 1: My Library
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/library',
+              builder: (context, state) => const LibraryScreen(),
+            ),
+          ],
+        ),
+        // Tab 2: Tuner
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -35,7 +47,7 @@ final appRouter = GoRouter(
             ),
           ],
         ),
-        // Tab 2: Metronome
+        // Tab 3: Metronome
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -44,7 +56,7 @@ final appRouter = GoRouter(
             ),
           ],
         ),
-        // Tab 3: Settings
+        // Tab 4: Settings
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -64,6 +76,32 @@ final appRouter = GoRouter(
         final title = state.uri.queryParameters['title'] ?? '';
         final artist = state.uri.queryParameters['artist'] ?? '';
         return SongScreen(songUrl: url, title: title, artist: artist);
+      },
+    ),
+    // Playlist detail
+    GoRoute(
+      parentNavigatorKey: _rootNavigatorKey,
+      path: '/playlist/:id',
+      builder: (context, state) {
+        final id = state.pathParameters['id']!;
+        return PlaylistDetailScreen(playlistId: id);
+      },
+    ),
+    // Song editor
+    GoRoute(
+      parentNavigatorKey: _rootNavigatorKey,
+      path: '/song-editor',
+      builder: (context, state) {
+        final id = state.uri.queryParameters['id'];
+        final originalSongId = state.uri.queryParameters['originalSongId'];
+        final title = state.uri.queryParameters['title'];
+        final artist = state.uri.queryParameters['artist'];
+        return SongEditorScreen(
+          songId: id,
+          originalSongId: originalSongId,
+          initialTitle: title,
+          initialArtist: artist,
+        );
       },
     ),
   ],

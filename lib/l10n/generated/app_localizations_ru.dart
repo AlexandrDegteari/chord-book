@@ -163,4 +163,129 @@ class AppLocalizationsRu extends AppLocalizations {
   String failed(String error) {
     return 'Ошибка: $error';
   }
+
+  @override
+  String get myLibrary => 'Моя библиотека';
+
+  @override
+  String get playlists => 'Плейлисты';
+
+  @override
+  String get mySongs => 'Мои песни';
+
+  @override
+  String get createPlaylist => 'Создать плейлист';
+
+  @override
+  String get createSong => 'Создать песню';
+
+  @override
+  String get editSong => 'Редактировать песню';
+
+  @override
+  String get addToPlaylist => 'Добавить в плейлист';
+
+  @override
+  String get createMyVersion => 'Создать мою версию';
+
+  @override
+  String get playlistTitle => 'Название плейлиста';
+
+  @override
+  String get playlistDescription => 'Описание (необязательно)';
+
+  @override
+  String get songTitle => 'Название песни';
+
+  @override
+  String get songArtist => 'Исполнитель';
+
+  @override
+  String get addSection => 'Добавить секцию';
+
+  @override
+  String get removeSection => 'Удалить секцию';
+
+  @override
+  String get verse => 'Куплет';
+
+  @override
+  String get chorus => 'Припев';
+
+  @override
+  String get bridge => 'Бридж';
+
+  @override
+  String get intro => 'Вступление';
+
+  @override
+  String get outro => 'Концовка';
+
+  @override
+  String get solo => 'Соло';
+
+  @override
+  String get other => 'Другое';
+
+  @override
+  String get saveDraft => 'Сохранить черновик';
+
+  @override
+  String get submitForReview => 'Отправить на проверку';
+
+  @override
+  String get draft => 'Черновик';
+
+  @override
+  String get submitted => 'На проверке';
+
+  @override
+  String get approved => 'Одобрено';
+
+  @override
+  String get rejected => 'Отклонено';
+
+  @override
+  String get noPlaylists => 'Пока нет плейлистов';
+
+  @override
+  String get noMySongs => 'Пока нет песен';
+
+  @override
+  String get deletePlaylist => 'Удалить плейлист';
+
+  @override
+  String get deleteSong => 'Удалить песню';
+
+  @override
+  String get confirmDelete => 'Вы уверены, что хотите удалить?';
+
+  @override
+  String get emptyPlaylist => 'Плейлист пуст';
+
+  @override
+  String get cancel => 'Отмена';
+
+  @override
+  String get delete => 'Удалить';
+
+  @override
+  String get create => 'Создать';
+
+  @override
+  String get save => 'Сохранить';
+
+  @override
+  String get addToFavorites => 'Избранное';
+
+  @override
+  String get newPlaylist => 'Новый плейлист';
+
+  @override
+  String get songContent => 'Текст с аккордами: [Am]текст [C]здесь';
+
+  @override
+  String nSongs(int count) {
+    return '$count песен';
+  }
 }

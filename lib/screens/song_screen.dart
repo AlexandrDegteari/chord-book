@@ -15,6 +15,8 @@ import '../widgets/chord_line.dart';
 import '../widgets/section_header.dart';
 import '../widgets/metronome_bottom_sheet.dart';
 import '../widgets/tuner_bottom_sheet.dart';
+import '../widgets/add_to_playlist_sheet.dart';
+import 'package:go_router/go_router.dart';
 
 class _ChordPosition {
   final int section;
@@ -246,7 +248,7 @@ class _SongScreenState extends ConsumerState<SongScreen> {
           ],
         ),
         actions: [
-          if (songId.isNotEmpty)
+          if (songId.isNotEmpty) ...[
             Builder(builder: (context) {
               final favs = ref.watch(favoritesProvider);
               final isFav = favs.any((f) => f.id == songId);
@@ -255,13 +257,45 @@ class _SongScreenState extends ConsumerState<SongScreen> {
                     color: isFav ? Colors.red : null, size: 20),
                 onPressed: () {
                   final song = songAsync.value!;
-                  ref.read(favoritesProvider.notifier).toggle(SearchResult(
-                    id: song.id, title: song.title,
-                    artist: song.artist, url: widget.songUrl,
-                  ));
+                  showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => AddToPlaylistSheet(
+                      song: SearchResult(
+                        id: song.id, title: song.title,
+                        artist: song.artist, url: widget.songUrl,
+                      ),
+                    ),
+                  );
                 },
               );
             }),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, size: 20),
+              onSelected: (value) {
+                if (value == 'my_version') {
+                  final song = songAsync.value!;
+                  context.push(
+                    '/song-editor?originalSongId=${song.id}'
+                    '&title=${Uri.encodeComponent(song.title)}'
+                    '&artist=${Uri.encodeComponent(song.artist)}',
+                  );
+                }
+              },
+              itemBuilder: (ctx) => [
+                PopupMenuItem(
+                  value: 'my_version',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.edit_note, size: 20),
+                      const SizedBox(width: 8),
+                      Text(AppLocalizations.of(ctx)!.createMyVersion),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
       body: switch (songAsync) {

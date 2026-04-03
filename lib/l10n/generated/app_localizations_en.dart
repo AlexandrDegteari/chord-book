@@ -163,4 +163,129 @@ class AppLocalizationsEn extends AppLocalizations {
   String failed(String error) {
     return 'Failed: $error';
   }
+
+  @override
+  String get myLibrary => 'My Library';
+
+  @override
+  String get playlists => 'Playlists';
+
+  @override
+  String get mySongs => 'My Songs';
+
+  @override
+  String get createPlaylist => 'Create Playlist';
+
+  @override
+  String get createSong => 'Create Song';
+
+  @override
+  String get editSong => 'Edit Song';
+
+  @override
+  String get addToPlaylist => 'Add to Playlist';
+
+  @override
+  String get createMyVersion => 'Create My Version';
+
+  @override
+  String get playlistTitle => 'Playlist Title';
+
+  @override
+  String get playlistDescription => 'Description (optional)';
+
+  @override
+  String get songTitle => 'Song Title';
+
+  @override
+  String get songArtist => 'Artist';
+
+  @override
+  String get addSection => 'Add Section';
+
+  @override
+  String get removeSection => 'Remove Section';
+
+  @override
+  String get verse => 'Verse';
+
+  @override
+  String get chorus => 'Chorus';
+
+  @override
+  String get bridge => 'Bridge';
+
+  @override
+  String get intro => 'Intro';
+
+  @override
+  String get outro => 'Outro';
+
+  @override
+  String get solo => 'Solo';
+
+  @override
+  String get other => 'Other';
+
+  @override
+  String get saveDraft => 'Save Draft';
+
+  @override
+  String get submitForReview => 'Submit for Review';
+
+  @override
+  String get draft => 'Draft';
+
+  @override
+  String get submitted => 'Submitted';
+
+  @override
+  String get approved => 'Approved';
+
+  @override
+  String get rejected => 'Rejected';
+
+  @override
+  String get noPlaylists => 'No playlists yet';
+
+  @override
+  String get noMySongs => 'No songs yet';
+
+  @override
+  String get deletePlaylist => 'Delete Playlist';
+
+  @override
+  String get deleteSong => 'Delete Song';
+
+  @override
+  String get confirmDelete => 'Are you sure you want to delete this?';
+
+  @override
+  String get emptyPlaylist => 'This playlist is empty';
+
+  @override
+  String get cancel => 'Cancel';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get create => 'Create';
+
+  @override
+  String get save => 'Save';
+
+  @override
+  String get addToFavorites => 'Favorites';
+
+  @override
+  String get newPlaylist => 'New Playlist';
+
+  @override
+  String get songContent => 'Lyrics with chords like [Am]text [C]here';
+
+  @override
+  String nSongs(int count) {
+    return '$count songs';
+  }
 }

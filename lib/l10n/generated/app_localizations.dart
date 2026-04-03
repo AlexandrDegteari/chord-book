@@ -399,6 +399,252 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed: {error}'**
   String failed(String error);
+
+  /// No description provided for @myLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'My Library'**
+  String get myLibrary;
+
+  /// No description provided for @playlists.
+  ///
+  /// In en, this message translates to:
+  /// **'Playlists'**
+  String get playlists;
+
+  /// No description provided for @mySongs.
+  ///
+  /// In en, this message translates to:
+  /// **'My Songs'**
+  String get mySongs;
+
+  /// No description provided for @createPlaylist.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Playlist'**
+  String get createPlaylist;
+
+  /// No description provided for @createSong.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Song'**
+  String get createSong;
+
+  /// No description provided for @editSong.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Song'**
+  String get editSong;
+
+  /// No description provided for @addToPlaylist.
+  ///
+  /// In en, this message translates to:
+  /// **'Add to Playlist'**
+  String get addToPlaylist;
+
+  /// No description provided for @createMyVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Create My Version'**
+  String get createMyVersion;
+
+  /// No description provided for @playlistTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Playlist Title'**
+  String get playlistTitle;
+
+  /// No description provided for @playlistDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Description (optional)'**
+  String get playlistDescription;
+
+  /// No description provided for @songTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Song Title'**
+  String get songTitle;
+
+  /// No description provided for @songArtist.
+  ///
+  /// In en, this message translates to:
+  /// **'Artist'**
+  String get songArtist;
+
+  /// No description provided for @addSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Section'**
+  String get addSection;
+
+  /// No description provided for @removeSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove Section'**
+  String get removeSection;
+
+  /// No description provided for @verse.
+  ///
+  /// In en, this message translates to:
+  /// **'Verse'**
+  String get verse;
+
+  /// No description provided for @chorus.
+  ///
+  /// In en, this message translates to:
+  /// **'Chorus'**
+  String get chorus;
+
+  /// No description provided for @bridge.
+  ///
+  /// In en, this message translates to:
+  /// **'Bridge'**
+  String get bridge;
+
+  /// No description provided for @intro.
+  ///
+  /// In en, this message translates to:
+  /// **'Intro'**
+  String get intro;
+
+  /// No description provided for @outro.
+  ///
+  /// In en, this message translates to:
+  /// **'Outro'**
+  String get outro;
+
+  /// No description provided for @solo.
+  ///
+  /// In en, this message translates to:
+  /// **'Solo'**
+  String get solo;
+
+  /// No description provided for @other.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get other;
+
+  /// No description provided for @saveDraft.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Draft'**
+  String get saveDraft;
+
+  /// No description provided for @submitForReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit for Review'**
+  String get submitForReview;
+
+  /// No description provided for @draft.
+  ///
+  /// In en, this message translates to:
+  /// **'Draft'**
+  String get draft;
+
+  /// No description provided for @submitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Submitted'**
+  String get submitted;
+
+  /// No description provided for @approved.
+  ///
+  /// In en, this message translates to:
+  /// **'Approved'**
+  String get approved;
+
+  /// No description provided for @rejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected'**
+  String get rejected;
+
+  /// No description provided for @noPlaylists.
+  ///
+  /// In en, this message translates to:
+  /// **'No playlists yet'**
+  String get noPlaylists;
+
+  /// No description provided for @noMySongs.
+  ///
+  /// In en, this message translates to:
+  /// **'No songs yet'**
+  String get noMySongs;
+
+  /// No description provided for @deletePlaylist.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Playlist'**
+  String get deletePlaylist;
+
+  /// No description provided for @deleteSong.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Song'**
+  String get deleteSong;
+
+  /// No description provided for @confirmDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this?'**
+  String get confirmDelete;
+
+  /// No description provided for @emptyPlaylist.
+  ///
+  /// In en, this message translates to:
+  /// **'This playlist is empty'**
+  String get emptyPlaylist;
+
+  /// No description provided for @cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get cancel;
+
+  /// No description provided for @delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get delete;
+
+  /// No description provided for @create.
+  ///
+  /// In en, this message translates to:
+  /// **'Create'**
+  String get create;
+
+  /// No description provided for @save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get save;
+
+  /// No description provided for @addToFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get addToFavorites;
+
+  /// No description provided for @newPlaylist.
+  ///
+  /// In en, this message translates to:
+  /// **'New Playlist'**
+  String get newPlaylist;
+
+  /// No description provided for @songContent.
+  ///
+  /// In en, this message translates to:
+  /// **'Lyrics with chords like [Am]text [C]here'**
+  String get songContent;
+
+  /// No description provided for @nSongs.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} songs'**
+  String nSongs(int count);
 }
 
 class _AppLocalizationsDelegate
