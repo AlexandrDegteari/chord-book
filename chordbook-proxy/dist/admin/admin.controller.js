@@ -42,11 +42,12 @@ let AdminController = class AdminController {
         this.playlistModel = playlistModel;
     }
     async getStats() {
-        const [songs, devices, playlists, pendingSongs, lastSyncResult] = await Promise.all([
-            this.songModel.count(),
+        const [songs, devices, playlists, pendingSongs, pendingImport, lastSyncResult] = await Promise.all([
+            this.songModel.count({ where: { status: 'active' } }),
             this.deviceModel.count(),
             this.playlistModel.count(),
             this.userSongModel.count({ where: { status: 'submitted' } }),
+            this.songModel.count({ where: { status: 'pending', source: 'scraped' } }),
             this.songModel.max('scrapedAt'),
         ]);
         return {
@@ -54,6 +55,7 @@ let AdminController = class AdminController {
             devices,
             playlists,
             pendingSongs,
+            pendingImport,
             lastSync: lastSyncResult || null,
             scrapeStatus: this.cronService.getStatus(),
         };
@@ -115,9 +117,6 @@ let AdminController = class AdminController {
             totalPages: Math.ceil(count / limitNum),
         };
     }
-    async runCron() {
-        return this.cronService.syncNewSongs();
-    }
     async fullScrape() {
         const status = this.cronService.getStatus();
         if (status.isRunning) {
@@ -146,7 +145,7 @@ let AdminController = class AdminController {
                         url: song.url,
                         sections: [],
                         source: 'scraped',
-                        status: 'active',
+                        status: 'pending',
                         scrapedAt: new Date(),
                     });
                     imported++;
@@ -160,6 +159,58 @@ let AdminController = class AdminController {
             }
         }
         return { imported, skipped, total: body.songs.length };
+    }
+    async getImportQueue(page = '1', limit = '50', search) {
+        const pageNum = Math.max(1, parseInt(page) || 1);
+        const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50));
+        const offset = (pageNum - 1) * limitNum;
+        const where = { status: 'pending', source: 'scraped' };
+        if (search) {
+            where[sequelize_1.Op.or] = [
+                { title: { [sequelize_1.Op.iLike]: `%${search}%` } },
+                { artist: { [sequelize_1.Op.iLike]: `%${search}%` } },
+            ];
+        }
+        const { count, rows } = await this.songModel.findAndCountAll({
+            where,
+            order: [['artist', 'ASC'], ['title', 'ASC']],
+            limit: limitNum,
+            offset,
+            attributes: { exclude: ['sections'] },
+        });
+        return {
+            songs: rows,
+            total: count,
+            page: pageNum,
+            totalPages: Math.ceil(count / limitNum),
+        };
+    }
+    async approveImport(body) {
+        if (!body.songIds?.length)
+            return { error: 'songIds required' };
+        const [count] = await this.songModel.update({ status: 'active' }, { where: { id: body.songIds, status: 'pending' } });
+        return { approved: count };
+    }
+    async approveAllImport() {
+        const [count] = await this.songModel.update({ status: 'active' }, { where: { status: 'pending', source: 'scraped' } });
+        return { approved: count };
+    }
+    async rejectImport(body) {
+        if (!body.songIds?.length)
+            return { error: 'songIds required' };
+        await this.songModel.destroy({
+            where: { id: body.songIds, status: 'pending' },
+        });
+        return { deleted: body.songIds.length };
+    }
+    async saveNamesFile(body) {
+        if (!body.songs?.length)
+            return { error: 'no songs' };
+        const fs = require('fs');
+        const path = require('path');
+        const filePath = path.join(__dirname, '..', '..', 'real_names.json');
+        fs.writeFileSync(filePath, JSON.stringify(body.songs));
+        return { saved: body.songs.length, path: filePath };
     }
     async bulkUpdateNames(body) {
         if (!body.songs || !Array.isArray(body.songs)) {
@@ -247,12 +298,6 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "getSongs", null);
 __decorate([
-    (0, common_1.Post)('cron/run'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
-], AdminController.prototype, "runCron", null);
-__decorate([
     (0, common_1.Post)('cron/full-scrape'),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
@@ -271,6 +316,42 @@ __decorate([
     __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "bulkImport", null);
+__decorate([
+    (0, common_1.Get)('import-queue'),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __param(2, (0, common_1.Query)('search')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "getImportQueue", null);
+__decorate([
+    (0, common_1.Post)('import-queue/approve'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "approveImport", null);
+__decorate([
+    (0, common_1.Post)('import-queue/approve-all'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "approveAllImport", null);
+__decorate([
+    (0, common_1.Post)('import-queue/reject'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "rejectImport", null);
+__decorate([
+    (0, common_1.Post)('save-names-file'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], AdminController.prototype, "saveNamesFile", null);
 __decorate([
     (0, common_1.Post)('bulk-update-names'),
     __param(0, (0, common_1.Body)()),

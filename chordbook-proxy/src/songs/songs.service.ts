@@ -47,8 +47,13 @@ export class SongsService {
         status: 'active',
         [Op.or]: searchConditions,
       },
-      limit: 30,
-      order: [['title', 'ASC']],
+      limit: 50,
+      order: [
+        // Prioritize exact query match (cyrillic names first when searching in cyrillic)
+        [this.songModel.sequelize!.literal(`CASE WHEN artist ILIKE '%${query.replace(/'/g, "''")}%' THEN 0 ELSE 1 END`), 'ASC'],
+        ['artist', 'ASC'],
+        ['title', 'ASC'],
+      ],
     });
 
     const formatted = dbResults.map((s) => ({

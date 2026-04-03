@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/sequelize';
 import { Song } from '../database/song.model';
 import { ScraperService } from '../scraper/scraper.service';
@@ -13,67 +12,6 @@ export class CronService {
     @InjectModel(Song) private readonly songModel: typeof Song,
     private readonly scraperService: ScraperService,
   ) {}
-
-  // Every Sunday at 3 AM
-  @Cron('0 3 * * 0')
-  async weeklySync() {
-    this.logger.log('Starting weekly sync with mychords.net...');
-    await this.syncNewSongs();
-    this.logger.log('Weekly sync completed');
-  }
-
-  async syncNewSongs() {
-    const artists = await this.songModel.findAll({
-      attributes: ['artist'],
-      where: { source: 'scraped', status: 'active' },
-      group: ['artist'],
-    });
-
-    let newSongsCount = 0;
-
-    for (const { artist } of artists) {
-      try {
-        const results = await this.scraperService.search(artist);
-
-        for (const result of results) {
-          const exists = await this.songModel.findOne({
-            where: { externalId: result.id },
-          });
-
-          if (!exists) {
-            try {
-              const fullSong = await this.scraperService.getSongByUrl(result.url);
-
-              await this.songModel.create({
-                externalId: fullSong.id,
-                title: fullSong.title,
-                artist: fullSong.artist,
-                url: fullSong.url,
-                sections: fullSong.sections,
-                source: 'scraped',
-                status: 'active',
-                scrapedAt: new Date(),
-              });
-
-              newSongsCount++;
-              this.logger.log(`Added: ${fullSong.artist} - ${fullSong.title}`);
-            } catch (err) {
-              this.logger.warn(`Failed to scrape ${result.url}: ${err.message}`);
-            }
-
-            await new Promise((r) => setTimeout(r, 2000));
-          }
-        }
-
-        await new Promise((r) => setTimeout(r, 1000));
-      } catch (err) {
-        this.logger.warn(`Failed to sync artist "${artist}": ${err.message}`);
-      }
-    }
-
-    this.logger.log(`Sync complete. Added ${newSongsCount} new songs`);
-    return { newSongsCount };
-  }
 
   getStatus() {
     return { isRunning: this.isRunning };
@@ -93,7 +31,6 @@ export class CronService {
     let failed = 0;
 
     try {
-      // Get all artists from alphabetical index
       const artists = await this.scraperService.getAllArtists();
       totalArtists = artists.length;
       this.logger.log(`Found ${totalArtists} artists to scrape`);
@@ -101,7 +38,6 @@ export class CronService {
       for (let i = 0; i < artists.length; i++) {
         const artist = artists[i];
         try {
-          // Get song list for this artist
           const songs = await this.scraperService.getArtistSongs(artist.url, artist.name);
           this.logger.log(`[${i + 1}/${totalArtists}] ${artist.name}: ${songs.length} songs`);
 
@@ -134,7 +70,7 @@ export class CronService {
                   url: fullSong.url,
                   sections: fullSong.sections,
                   source: 'scraped',
-                  status: 'active',
+                  status: 'pending',
                   scrapedAt: new Date(),
                 });
               }
@@ -149,11 +85,9 @@ export class CronService {
               this.logger.warn(`Failed: ${song.url} - ${err.message}`);
             }
 
-            // Rate limit: 3s between song scrapes
             await new Promise((r) => setTimeout(r, 3000));
           }
 
-          // Delay between artists
           await new Promise((r) => setTimeout(r, 2000));
         } catch (err) {
           this.logger.warn(`Failed artist "${artist.name}": ${err.message}`);

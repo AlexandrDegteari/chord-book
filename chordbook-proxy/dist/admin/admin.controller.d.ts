@@ -19,6 +19,7 @@ export declare class AdminController {
         devices: number;
         playlists: number;
         pendingSongs: number;
+        pendingImport: number;
         lastSync: {} | null;
         scrapeStatus: {
             isRunning: boolean;
@@ -36,9 +37,6 @@ export declare class AdminController {
         total: number;
         page: number;
         totalPages: number;
-    }>;
-    runCron(): Promise<{
-        newSongsCount: number;
     }>;
     fullScrape(): Promise<{
         error: string;
@@ -66,6 +64,48 @@ export declare class AdminController {
         imported: number;
         skipped: number;
         total: number;
+        error?: undefined;
+    }>;
+    getImportQueue(page?: string, limit?: string, search?: string): Promise<{
+        songs: Song[];
+        total: number;
+        page: number;
+        totalPages: number;
+    }>;
+    approveImport(body: {
+        songIds: string[];
+    }): Promise<{
+        error: string;
+        approved?: undefined;
+    } | {
+        approved: number;
+        error?: undefined;
+    }>;
+    approveAllImport(): Promise<{
+        approved: number;
+    }>;
+    rejectImport(body: {
+        songIds: string[];
+    }): Promise<{
+        error: string;
+        deleted?: undefined;
+    } | {
+        deleted: number;
+        error?: undefined;
+    }>;
+    saveNamesFile(body: {
+        songs: Array<{
+            id: string;
+            title: string;
+            artist: string;
+        }>;
+    }): Promise<{
+        error: string;
+        saved?: undefined;
+        path?: undefined;
+    } | {
+        saved: number;
+        path: any;
         error?: undefined;
     }>;
     bulkUpdateNames(body: {

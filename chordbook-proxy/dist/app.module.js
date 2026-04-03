@@ -10,7 +10,6 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const path_1 = require("path");
-const schedule_1 = require("@nestjs/schedule");
 const database_module_1 = require("./database/database.module");
 const scraper_module_1 = require("./scraper/scraper.module");
 const songs_module_1 = require("./songs/songs.module");
@@ -30,7 +29,6 @@ exports.AppModule = AppModule = __decorate([
                 isGlobal: true,
                 envFilePath: (0, path_1.join)(__dirname, '..', '.env'),
             }),
-            schedule_1.ScheduleModule.forRoot(),
             database_module_1.DatabaseModule,
             scraper_module_1.ScraperModule,
             songs_module_1.SongsModule,

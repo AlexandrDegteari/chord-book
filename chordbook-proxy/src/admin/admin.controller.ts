@@ -27,11 +27,12 @@ export class AdminController {
 
   @Get('stats')
   async getStats() {
-    const [songs, devices, playlists, pendingSongs, lastSyncResult] = await Promise.all([
-      this.songModel.count(),
+    const [songs, devices, playlists, pendingSongs, pendingImport, lastSyncResult] = await Promise.all([
+      this.songModel.count({ where: { status: 'active' } }),
       this.deviceModel.count(),
       this.playlistModel.count(),
       this.userSongModel.count({ where: { status: 'submitted' } }),
+      this.songModel.count({ where: { status: 'pending', source: 'scraped' } }),
       this.songModel.max('scrapedAt'),
     ]);
     return {
@@ -39,6 +40,7 @@ export class AdminController {
       devices,
       playlists,
       pendingSongs,
+      pendingImport,
       lastSync: lastSyncResult || null,
       scrapeStatus: this.cronService.getStatus(),
     };
@@ -126,11 +128,6 @@ export class AdminController {
     };
   }
 
-  @Post('cron/run')
-  async runCron() {
-    return this.cronService.syncNewSongs();
-  }
-
   @Post('cron/full-scrape')
   async fullScrape() {
     // Run in background, return immediately
@@ -167,7 +164,7 @@ export class AdminController {
             url: song.url,
             sections: [],
             source: 'scraped',
-            status: 'active',
+            status: 'pending',
             scrapedAt: new Date(),
           });
           imported++;
@@ -180,6 +177,71 @@ export class AdminController {
     }
 
     return { imported, skipped, total: body.songs.length };
+  }
+
+  @Get('import-queue')
+  async getImportQueue(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '50',
+    @Query('search') search?: string,
+  ) {
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 50));
+    const offset = (pageNum - 1) * limitNum;
+
+    const where: any = { status: 'pending', source: 'scraped' };
+
+    if (search) {
+      where[Op.or] = [
+        { title: { [Op.iLike]: `%${search}%` } },
+        { artist: { [Op.iLike]: `%${search}%` } },
+      ];
+    }
+
+    const { count, rows } = await this.songModel.findAndCountAll({
+      where,
+      order: [['artist', 'ASC'], ['title', 'ASC']],
+      limit: limitNum,
+      offset,
+      attributes: { exclude: ['sections'] },
+    });
+
+    return {
+      songs: rows,
+      total: count,
+      page: pageNum,
+      totalPages: Math.ceil(count / limitNum),
+    };
+  }
+
+  @Post('import-queue/approve')
+  async approveImport(@Body() body: { songIds: string[] }) {
+    if (!body.songIds?.length) return { error: 'songIds required' };
+
+    const [count] = await this.songModel.update(
+      { status: 'active' },
+      { where: { id: body.songIds, status: 'pending' } },
+    );
+    return { approved: count };
+  }
+
+  @Post('import-queue/approve-all')
+  async approveAllImport() {
+    const [count] = await this.songModel.update(
+      { status: 'active' },
+      { where: { status: 'pending', source: 'scraped' } },
+    );
+    return { approved: count };
+  }
+
+  @Post('import-queue/reject')
+  async rejectImport(@Body() body: { songIds: string[] }) {
+    if (!body.songIds?.length) return { error: 'songIds required' };
+
+    await this.songModel.destroy({
+      where: { id: body.songIds, status: 'pending' },
+    });
+    return { deleted: body.songIds.length };
   }
 
   @Post('save-names-file')

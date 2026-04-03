@@ -15,7 +15,6 @@ var CronService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CronService = void 0;
 const common_1 = require("@nestjs/common");
-const schedule_1 = require("@nestjs/schedule");
 const sequelize_1 = require("@nestjs/sequelize");
 const song_model_1 = require("../database/song.model");
 const scraper_service_1 = require("../scraper/scraper.service");
@@ -27,56 +26,6 @@ let CronService = CronService_1 = class CronService {
     constructor(songModel, scraperService) {
         this.songModel = songModel;
         this.scraperService = scraperService;
-    }
-    async weeklySync() {
-        this.logger.log('Starting weekly sync with mychords.net...');
-        await this.syncNewSongs();
-        this.logger.log('Weekly sync completed');
-    }
-    async syncNewSongs() {
-        const artists = await this.songModel.findAll({
-            attributes: ['artist'],
-            where: { source: 'scraped', status: 'active' },
-            group: ['artist'],
-        });
-        let newSongsCount = 0;
-        for (const { artist } of artists) {
-            try {
-                const results = await this.scraperService.search(artist);
-                for (const result of results) {
-                    const exists = await this.songModel.findOne({
-                        where: { externalId: result.id },
-                    });
-                    if (!exists) {
-                        try {
-                            const fullSong = await this.scraperService.getSongByUrl(result.url);
-                            await this.songModel.create({
-                                externalId: fullSong.id,
-                                title: fullSong.title,
-                                artist: fullSong.artist,
-                                url: fullSong.url,
-                                sections: fullSong.sections,
-                                source: 'scraped',
-                                status: 'active',
-                                scrapedAt: new Date(),
-                            });
-                            newSongsCount++;
-                            this.logger.log(`Added: ${fullSong.artist} - ${fullSong.title}`);
-                        }
-                        catch (err) {
-                            this.logger.warn(`Failed to scrape ${result.url}: ${err.message}`);
-                        }
-                        await new Promise((r) => setTimeout(r, 2000));
-                    }
-                }
-                await new Promise((r) => setTimeout(r, 1000));
-            }
-            catch (err) {
-                this.logger.warn(`Failed to sync artist "${artist}": ${err.message}`);
-            }
-        }
-        this.logger.log(`Sync complete. Added ${newSongsCount} new songs`);
-        return { newSongsCount };
     }
     getStatus() {
         return { isRunning: this.isRunning };
@@ -127,7 +76,7 @@ let CronService = CronService_1 = class CronService {
                                     url: fullSong.url,
                                     sections: fullSong.sections,
                                     source: 'scraped',
-                                    status: 'active',
+                                    status: 'pending',
                                     scrapedAt: new Date(),
                                 });
                             }
@@ -158,12 +107,6 @@ let CronService = CronService_1 = class CronService {
     }
 };
 exports.CronService = CronService;
-__decorate([
-    (0, schedule_1.Cron)('0 3 * * 0'),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
-    __metadata("design:returntype", Promise)
-], CronService.prototype, "weeklySync", null);
 exports.CronService = CronService = CronService_1 = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, sequelize_1.InjectModel)(song_model_1.Song)),

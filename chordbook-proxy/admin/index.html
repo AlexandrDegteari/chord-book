@@ -41,6 +41,9 @@
       <div class="flex gap-4">
         <button @click="tab='dashboard'" :class="tab==='dashboard' ? 'text-orange-400' : 'text-gray-400'" class="hover:text-white">Dashboard</button>
         <button @click="tab='songs'; loadSongs()" :class="tab==='songs' ? 'text-orange-400' : 'text-gray-400'" class="hover:text-white">Songs</button>
+        <button @click="tab='import'; loadImportQueue()" :class="tab==='import' ? 'text-orange-400' : 'text-gray-400'" class="hover:text-white">
+          Import Queue <span x-show="stats.pendingImport > 0" class="bg-yellow-500 text-black text-xs px-2 py-0.5 rounded-full ml-1" x-text="stats.pendingImport"></span>
+        </button>
         <button @click="tab='moderation'; loadPending()" :class="tab==='moderation' ? 'text-orange-400' : 'text-gray-400'" class="hover:text-white">
           Moderation <span x-show="stats.pendingSongs > 0" class="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full ml-1" x-text="stats.pendingSongs"></span>
         </button>
@@ -52,10 +55,14 @@
 
       <!-- Dashboard Tab -->
       <div x-show="tab==='dashboard'">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           <div class="bg-gray-800 p-6 rounded-xl">
-            <p class="text-gray-400 text-sm">Songs</p>
+            <p class="text-gray-400 text-sm">Active Songs</p>
             <p class="text-3xl font-bold text-white" x-text="stats.songs">0</p>
+          </div>
+          <div class="bg-gray-800 p-6 rounded-xl cursor-pointer hover:bg-gray-750" @click="tab='import'; loadImportQueue()">
+            <p class="text-gray-400 text-sm">Pending Import</p>
+            <p class="text-3xl font-bold" :class="stats.pendingImport > 0 ? 'text-yellow-400' : 'text-white'" x-text="stats.pendingImport || 0">0</p>
           </div>
           <div class="bg-gray-800 p-6 rounded-xl">
             <p class="text-gray-400 text-sm">Devices</p>
@@ -66,12 +73,11 @@
             <p class="text-3xl font-bold text-white" x-text="stats.playlists">0</p>
           </div>
           <div class="bg-gray-800 p-6 rounded-xl cursor-pointer hover:bg-gray-750" @click="tab='moderation'; loadPending()">
-            <p class="text-gray-400 text-sm">Pending Moderation</p>
+            <p class="text-gray-400 text-sm">User Moderation</p>
             <p class="text-3xl font-bold" :class="stats.pendingSongs > 0 ? 'text-orange-400' : 'text-white'" x-text="stats.pendingSongs">0</p>
           </div>
         </div>
 
-        <!-- Last sync & scrape status -->
         <div class="bg-gray-800 p-5 rounded-xl mb-6">
           <div class="flex items-center justify-between">
             <div>
@@ -87,16 +93,10 @@
           </div>
         </div>
 
-        <div class="flex gap-3">
-          <button @click="runCron()" :disabled="cronRunning" class="bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-semibold">
-            <span x-show="!cronRunning">Run Weekly Sync</span>
-            <span x-show="cronRunning">Syncing...</span>
-          </button>
-          <button @click="runFullScrape()" :disabled="fullScrapeRunning" class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-semibold">
-            <span x-show="!fullScrapeRunning">Full Scrape</span>
-            <span x-show="fullScrapeRunning">Scraping...</span>
-          </button>
-        </div>
+        <button @click="runFullScrape()" :disabled="fullScrapeRunning" class="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-semibold">
+          <span x-show="!fullScrapeRunning">Run Full Scrape</span>
+          <span x-show="fullScrapeRunning">Scraping...</span>
+        </button>
         <p x-show="cronResult" x-text="cronResult" class="text-green-400 mt-3"></p>
       </div>
 
@@ -107,7 +107,6 @@
           <span class="text-gray-400 text-sm" x-text="'Total: ' + songsTotal"></span>
         </div>
 
-        <!-- Search -->
         <div class="mb-4">
           <input
             x-model="songsSearch"
@@ -118,7 +117,6 @@
           />
         </div>
 
-        <!-- Letter tabs -->
         <div class="flex flex-wrap gap-1 mb-2">
           <button
             @click="songsLetter=''; songsSearch=''; songsPage=1; loadSongs()"
@@ -150,7 +148,6 @@
           </template>
         </div>
 
-        <!-- Songs table -->
         <div class="bg-gray-800 rounded-xl overflow-hidden">
           <table class="w-full">
             <thead class="bg-gray-750">
@@ -158,62 +155,116 @@
                 <th class="p-4">Artist</th>
                 <th class="p-4">Title</th>
                 <th class="p-4">Source</th>
-                <th class="p-4">Status</th>
                 <th class="p-4">Added</th>
               </tr>
             </thead>
             <tbody>
               <template x-for="song in songs" :key="song.id">
                 <tr class="border-t border-gray-700 hover:bg-gray-750">
-                  <td class="p-4"><a href="#" @click.prevent="songsSearch=song.artist; songsLetter=''; songsPage=1; loadSongs()" class="text-orange-400 hover:text-orange-300 hover:underline cursor-pointer" x-text="song.artist"></a></td>
+                  <td class="p-4"><a href="#" @click.prevent="songsSearch=song.artist; songsLetter=''; songsPage=1; loadSongs()" class="text-orange-400 hover:underline" x-text="song.artist"></a></td>
                   <td class="p-4" x-text="song.title"></td>
                   <td class="p-4">
                     <span class="text-xs px-2 py-1 rounded-full" :class="song.source==='scraped' ? 'bg-blue-900 text-blue-300' : 'bg-purple-900 text-purple-300'" x-text="song.source"></span>
-                  </td>
-                  <td class="p-4">
-                    <span class="text-xs px-2 py-1 rounded-full" :class="song.status==='active' ? 'bg-green-900 text-green-300' : 'bg-yellow-900 text-yellow-300'" x-text="song.status"></span>
                   </td>
                   <td class="p-4 text-gray-500 text-sm" x-text="new Date(song.createdAt).toLocaleDateString()"></td>
                 </tr>
               </template>
               <tr x-show="songs.length === 0">
-                <td colspan="5" class="p-8 text-center text-gray-500">No songs found</td>
+                <td colspan="4" class="p-8 text-center text-gray-500">No songs found</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <!-- Pagination -->
         <div x-show="songsTotalPages > 1" class="flex items-center justify-center gap-2 mt-4">
-          <button
-            @click="songsPage = Math.max(1, songsPage - 1); loadSongs()"
-            :disabled="songsPage <= 1"
-            class="px-3 py-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white disabled:opacity-30"
-          >&laquo;</button>
-
-          <template x-for="p in paginationRange()" :key="p">
-            <button
-              x-show="p !== '...'"
-              @click="songsPage = p; loadSongs()"
-              :class="songsPage === p ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'"
-              class="px-3 py-2 rounded-lg text-sm"
-              x-text="p"
-            ></button>
-            <span x-show="p === '...'" class="text-gray-500 px-1">...</span>
+          <button @click="songsPage = Math.max(1, songsPage - 1); loadSongs()" :disabled="songsPage <= 1" class="px-3 py-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white disabled:opacity-30">&laquo;</button>
+          <template x-for="p in paginationRange(songsPage, songsTotalPages)" :key="'s'+p">
+            <template x-if="p !== '...'"><button @click="songsPage = p; loadSongs()" :class="songsPage === p ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'" class="px-3 py-2 rounded-lg text-sm" x-text="p"></button></template>
+            <template x-if="p === '...'"><span class="text-gray-500 px-1">...</span></template>
           </template>
-
-          <button
-            @click="songsPage = Math.min(songsTotalPages, songsPage + 1); loadSongs()"
-            :disabled="songsPage >= songsTotalPages"
-            class="px-3 py-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white disabled:opacity-30"
-          >&raquo;</button>
+          <button @click="songsPage = Math.min(songsTotalPages, songsPage + 1); loadSongs()" :disabled="songsPage >= songsTotalPages" class="px-3 py-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white disabled:opacity-30">&raquo;</button>
         </div>
       </div>
 
-      <!-- Moderation Tab -->
+      <!-- Import Queue Tab -->
+      <div x-show="tab==='import'">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-bold">Import Queue</h2>
+          <div class="flex items-center gap-3">
+            <span class="text-gray-400 text-sm" x-text="'Pending: ' + importTotal"></span>
+            <button x-show="importTotal > 0" @click="approveAllImport()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-semibold">Approve All</button>
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <input
+            x-model="importSearch"
+            @input.debounce.400ms="importPage=1; loadImportQueue()"
+            type="text"
+            placeholder="Search pending imports..."
+            class="w-full p-3 rounded-lg bg-gray-800 border border-gray-700 focus:outline-none focus:border-orange-500"
+          />
+        </div>
+
+        <div x-show="importSongs.length === 0" class="text-gray-500 text-center py-12">No songs pending import</div>
+
+        <div x-show="importSongs.length > 0" class="bg-gray-800 rounded-xl overflow-hidden">
+          <!-- Batch actions -->
+          <div class="p-4 bg-gray-750 flex items-center gap-3">
+            <label class="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+              <input type="checkbox" @change="toggleSelectAll($event)" class="rounded"> Select all on page
+            </label>
+            <button x-show="selectedImports.length > 0" @click="approveSelected()" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
+              Approve (<span x-text="selectedImports.length"></span>)
+            </button>
+            <button x-show="selectedImports.length > 0" @click="rejectSelected()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
+              Reject (<span x-text="selectedImports.length"></span>)
+            </button>
+          </div>
+
+          <table class="w-full">
+            <thead>
+              <tr class="text-left text-gray-400 text-sm">
+                <th class="p-4 w-10"></th>
+                <th class="p-4">Artist</th>
+                <th class="p-4">Title</th>
+                <th class="p-4 w-32">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="song in importSongs" :key="song.id">
+                <tr class="border-t border-gray-700 hover:bg-gray-750">
+                  <td class="p-4">
+                    <input type="checkbox" :value="song.id" x-model="selectedImports" class="rounded">
+                  </td>
+                  <td class="p-4" x-text="song.artist"></td>
+                  <td class="p-4" x-text="song.title"></td>
+                  <td class="p-4">
+                    <div class="flex gap-1">
+                      <button @click="approveOne(song.id)" class="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs">Approve</button>
+                      <button @click="rejectOne(song.id)" class="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs">Reject</button>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+
+        <div x-show="importTotalPages > 1" class="flex items-center justify-center gap-2 mt-4">
+          <button @click="importPage = Math.max(1, importPage - 1); loadImportQueue()" :disabled="importPage <= 1" class="px-3 py-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white disabled:opacity-30">&laquo;</button>
+          <template x-for="p in paginationRange(importPage, importTotalPages)" :key="'i'+p">
+            <template x-if="p !== '...'"><button @click="importPage = p; loadImportQueue()" :class="importPage === p ? 'bg-orange-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'" class="px-3 py-2 rounded-lg text-sm" x-text="p"></button></template>
+            <template x-if="p === '...'"><span class="text-gray-500 px-1">...</span></template>
+          </template>
+          <button @click="importPage = Math.min(importTotalPages, importPage + 1); loadImportQueue()" :disabled="importPage >= importTotalPages" class="px-3 py-2 rounded-lg bg-gray-800 text-gray-400 hover:text-white disabled:opacity-30">&raquo;</button>
+        </div>
+      </div>
+
+      <!-- Moderation Tab (user songs) -->
       <div x-show="tab==='moderation'">
-        <h2 class="text-xl font-bold mb-4">Pending Moderation</h2>
-        <div x-show="pending.length === 0" class="text-gray-500 text-center py-12">No songs pending moderation</div>
+        <h2 class="text-xl font-bold mb-4">User Song Moderation</h2>
+        <div x-show="pending.length === 0" class="text-gray-500 text-center py-12">No user songs pending moderation</div>
         <div class="space-y-4">
           <template x-for="song in pending" :key="song.id">
             <div class="bg-gray-800 p-6 rounded-xl">
@@ -298,7 +349,8 @@ function adminApp() {
     authenticated: false,
     error: '',
     tab: 'dashboard',
-    stats: { songs: 0, devices: 0, playlists: 0, pendingSongs: 0, lastSync: null, scrapeStatus: {} },
+    stats: { songs: 0, devices: 0, playlists: 0, pendingSongs: 0, pendingImport: 0, lastSync: null, scrapeStatus: {} },
+    // Songs
     songs: [],
     songsTotal: 0,
     songsPage: 1,
@@ -307,9 +359,16 @@ function adminApp() {
     songsSearch: '',
     lettersEN: EN,
     lettersRU: RU,
+    // Import queue
+    importSongs: [],
+    importTotal: 0,
+    importPage: 1,
+    importTotalPages: 1,
+    importSearch: '',
+    selectedImports: [],
+    // Moderation (user songs)
     pending: [],
     devices: [],
-    cronRunning: false,
     fullScrapeRunning: false,
     cronResult: '',
     showRejectModal: false,
@@ -321,9 +380,7 @@ function adminApp() {
     },
 
     async init() {
-      if (this.token) {
-        await this.login();
-      }
+      if (this.token) await this.login();
     },
 
     async login() {
@@ -340,11 +397,11 @@ function adminApp() {
       }
     },
 
+    // Songs
     async loadSongs() {
       const params = new URLSearchParams({ page: this.songsPage, limit: 50 });
       if (this.songsLetter) params.set('letter', this.songsLetter);
       if (this.songsSearch) params.set('search', this.songsSearch);
-
       const res = await fetch(`${API}/admin/songs?${params}`, { headers: this.headers() });
       const data = await res.json();
       this.songs = data.songs;
@@ -352,22 +409,68 @@ function adminApp() {
       this.songsTotalPages = data.totalPages;
     },
 
-    paginationRange() {
-      const total = this.songsTotalPages;
-      const current = this.songsPage;
-      if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    // Import Queue
+    async loadImportQueue() {
+      const params = new URLSearchParams({ page: this.importPage, limit: 50 });
+      if (this.importSearch) params.set('search', this.importSearch);
+      const res = await fetch(`${API}/admin/import-queue?${params}`, { headers: this.headers() });
+      const data = await res.json();
+      this.importSongs = data.songs;
+      this.importTotal = data.total;
+      this.importTotalPages = data.totalPages;
+      this.selectedImports = [];
+    },
 
-      const pages = [];
-      pages.push(1);
-      if (current > 3) pages.push('...');
-      for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
-        pages.push(i);
+    toggleSelectAll(e) {
+      if (e.target.checked) {
+        this.selectedImports = this.importSongs.map(s => s.id);
+      } else {
+        this.selectedImports = [];
       }
+    },
+
+    async approveOne(id) {
+      await fetch(`${API}/admin/import-queue/approve`, { method: 'POST', headers: this.headers(), body: JSON.stringify({ songIds: [id] }) });
+      await this.loadImportQueue();
+      await this.refreshStats();
+    },
+
+    async rejectOne(id) {
+      await fetch(`${API}/admin/import-queue/reject`, { method: 'POST', headers: this.headers(), body: JSON.stringify({ songIds: [id] }) });
+      await this.loadImportQueue();
+      await this.refreshStats();
+    },
+
+    async approveSelected() {
+      await fetch(`${API}/admin/import-queue/approve`, { method: 'POST', headers: this.headers(), body: JSON.stringify({ songIds: this.selectedImports }) });
+      await this.loadImportQueue();
+      await this.refreshStats();
+    },
+
+    async rejectSelected() {
+      await fetch(`${API}/admin/import-queue/reject`, { method: 'POST', headers: this.headers(), body: JSON.stringify({ songIds: this.selectedImports }) });
+      await this.loadImportQueue();
+      await this.refreshStats();
+    },
+
+    async approveAllImport() {
+      if (!confirm(`Approve all ${this.importTotal} pending songs?`)) return;
+      await fetch(`${API}/admin/import-queue/approve-all`, { method: 'POST', headers: this.headers() });
+      await this.loadImportQueue();
+      await this.refreshStats();
+    },
+
+    paginationRange(current, total) {
+      if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+      const pages = [1];
+      if (current > 3) pages.push('...');
+      for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) pages.push(i);
       if (current < total - 2) pages.push('...');
       pages.push(total);
       return pages;
     },
 
+    // User song moderation
     async loadPending() {
       const res = await fetch(`${API}/admin/pending-songs`, { headers: this.headers() });
       this.pending = await res.json();
@@ -399,20 +502,6 @@ function adminApp() {
       this.showRejectModal = false;
       await this.loadPending();
       await this.refreshStats();
-    },
-
-    async runCron() {
-      this.cronRunning = true;
-      this.cronResult = '';
-      try {
-        const res = await fetch(`${API}/admin/cron/run`, { method: 'POST', headers: this.headers() });
-        const data = await res.json();
-        this.cronResult = `Sync complete. Added ${data.newSongsCount} new songs.`;
-        await this.refreshStats();
-      } catch {
-        this.cronResult = 'Sync failed.';
-      }
-      this.cronRunning = false;
     },
 
     async runFullScrape() {

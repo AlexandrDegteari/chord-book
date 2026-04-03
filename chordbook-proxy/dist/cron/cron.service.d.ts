@@ -6,10 +6,6 @@ export declare class CronService {
     private readonly logger;
     private isRunning;
     constructor(songModel: typeof Song, scraperService: ScraperService);
-    weeklySync(): Promise<void>;
-    syncNewSongs(): Promise<{
-        newSongsCount: number;
-    }>;
     getStatus(): {
         isRunning: boolean;
     };

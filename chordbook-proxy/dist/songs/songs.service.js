@@ -53,8 +53,12 @@ let SongsService = SongsService_1 = class SongsService {
                 status: 'active',
                 [sequelize_2.Op.or]: searchConditions,
             },
-            limit: 30,
-            order: [['title', 'ASC']],
+            limit: 50,
+            order: [
+                [this.songModel.sequelize.literal(`CASE WHEN artist ILIKE '%${query.replace(/'/g, "''")}%' THEN 0 ELSE 1 END`), 'ASC'],
+                ['artist', 'ASC'],
+                ['title', 'ASC'],
+            ],
         });
         const formatted = dbResults.map((s) => ({
             id: s.externalId || s.id,
