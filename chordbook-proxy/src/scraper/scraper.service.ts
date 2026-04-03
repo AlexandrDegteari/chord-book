@@ -120,7 +120,7 @@ export class ScraperService implements OnModuleDestroy {
     return results;
   }
 
-  private async getArtistSongs(
+  async getArtistSongs(
     artistUrl: string,
     artistName: string,
   ): Promise<SearchResult[]> {
@@ -154,6 +154,73 @@ export class ScraperService implements OnModuleDestroy {
     });
 
     return results;
+  }
+
+  async getAllArtists(): Promise<Array<{ name: string; url: string }>> {
+    const artistMap = new Map<string, { name: string; url: string }>();
+
+    // Use autocomplete API with alphabet queries to discover artists
+    const queries = [
+      ...('abcdefghijklmnopqrstuvwxyz'.split('')),
+      ...('абвгдежзиклмнопрстуфхцчшщэюя'.split('')),
+      // Common two-letter combos for broader coverage
+      'th', 'ch', 'sh', 'st', 'tr', 'br', 'cr', 'gr', 'fr', 'pr',
+      'ac', 'ad', 'al', 'am', 'an', 'ar', 'ba', 'be', 'bi', 'bl',
+      'bo', 'ca', 'co', 'da', 'de', 'di', 'do', 'dr', 'ed', 'el',
+      'em', 'fl', 'fo', 'ga', 'ge', 'go', 'ha', 'he', 'ho', 'in',
+      'ja', 'je', 'jo', 'ka', 'ke', 'ki', 'la', 'le', 'li', 'lo',
+      'ma', 'me', 'mi', 'mo', 'mu', 'na', 'ne', 'ni', 'no',
+      'pa', 'pe', 'ph', 'pi', 'pl', 'po', 'qu', 'ra', 're', 'ri',
+      'ro', 'ru', 'sa', 'sc', 'se', 'si', 'sl', 'sm', 'sn', 'so',
+      'sp', 'sq', 'su', 'sw', 'ta', 'te', 'ti', 'to', 'tu',
+      'un', 'va', 'vi', 'wa', 'we', 'wi', 'yo', 'za',
+      // Russian two-letter
+      'ал', 'ан', 'ар', 'ба', 'бе', 'би', 'бу', 'ва', 'ви', 'вл',
+      'га', 'гр', 'да', 'де', 'ди', 'до', 'ев', 'за', 'зе',
+      'ив', 'ка', 'ки', 'ко', 'кр', 'ла', 'ле', 'ли', 'лу', 'лю',
+      'ма', 'ме', 'ми', 'мо', 'му', 'на', 'не', 'ни', 'но',
+      'ол', 'па', 'пе', 'по', 'пр', 'ра', 'ро', 'ру',
+      'са', 'се', 'си', 'сл', 'сн', 'со', 'ст', 'та', 'те', 'ти',
+      'тр', 'ук', 'фа', 'фл', 'ха', 'хо', 'це', 'чи', 'ша', 'шо',
+      'эл', 'юр', 'яр',
+    ];
+
+    for (const q of queries) {
+      try {
+        const { data } = await axios.get(
+          `${this.baseUrl}/en/ajax/autocomplete`,
+          {
+            params: { q },
+            headers: {
+              ...this.headers,
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+          },
+        );
+
+        if (data?.suggestions) {
+          for (const suggestion of data.suggestions) {
+            const group = suggestion.data?.group || '';
+            const url = suggestion.data?.url || '';
+            const value = suggestion.value || '';
+
+            if (group === 'Artists' && value) {
+              const fullUrl = url.startsWith('http') ? url : `${this.baseUrl}${url}`;
+              if (!artistMap.has(value)) {
+                artistMap.set(value, { name: value, url: fullUrl });
+              }
+            }
+          }
+        }
+
+        await new Promise((r) => setTimeout(r, 1500));
+      } catch {
+        // Skip failed queries — might be rate limited
+        await new Promise((r) => setTimeout(r, 5000));
+      }
+    }
+
+    return Array.from(artistMap.values());
   }
 
   async getSong(id: string): Promise<Song> {
